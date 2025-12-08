@@ -29,6 +29,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     $templateId = $_POST['template_id'] ?? '';
     $contractorId = $_POST['contractor_id'] ?? '';
 
+    // Dak Integration
+    $dakRef = $_GET['dak_ref'] ? htmlspecialchars($_GET['dak_ref']) : '';
+    $dakSubject = $_GET['subject'] ? htmlspecialchars($_GET['subject']) : '';
+    $dakSender = $_GET['sender'] ? htmlspecialchars($_GET['sender']) : '';
+
     if (empty($templateId) || empty($contractorId)) {
         $error = "Please select both a template and a contractor.";
     } else {
@@ -60,10 +65,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                 $deptMeta = getDepartment($deptId);
                 $replacements['{{department_name}}'] = $deptMeta['name'] ?? 'Department';
 
+                // Add Dak info if present
+                if ($dakRef) {
+                    $replacements['{{dak_ref}}'] = $dakRef;
+                    $replacements['{{dak_sender}}'] = $dakSender;
+                    $replacements['{{dak_subject}}'] = $dakSubject;
+                }
+
                 $generatedHtml = str_replace(array_keys($replacements), array_values($replacements), $content);
 
                 // Keep the titles to pass to save logic
-                $documentTitle = $templateData['title'] . ' - ' . $contractorData['name'];
+                $documentTitle = ($dakRef ? "[$dakRef] " : "") . $templateData['title'] . ' - ' . $contractorData['name'];
 
             } else {
                 $error = "Template file not found.";
@@ -150,30 +162,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
     <title>Create Document - Yojak</title>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="print.css">
     <style>
-        .page {
-            width: 210mm;
-            min-height: 297mm;
-            padding: 20mm;
-            margin: 10mm auto;
-            border: 1px solid #d3d3d3;
-            background: white;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
-            color: black; /* Ensure text is black for printing */
-            box-sizing: border-box; /* Important for padding */
-        }
-        @media print {
-            .page {
-                margin: 0;
-                border: initial;
-                box-shadow: none;
-                width: initial;
-                min-height: initial;
-            }
-            body { background: white; }
-            .sidebar, .no-print, .dashboard-header { display: none !important; }
-        }
-
         .selection-panel {
             background: white;
             padding: 1.5rem;
@@ -186,6 +176,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
         .preview-actions {
             text-align: center;
             margin-bottom: 2rem;
+        }
+
+        /* Screen View for Page */
+        .page-preview {
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            margin: 20px auto;
+            border: 1px solid #ccc;
         }
     </style>
 </head>
@@ -244,6 +242,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="include_header" value="1" <?php if(isset($_POST['include_header'])) echo 'checked'; ?>>
+                        Include Official Header?
+                    </label>
+                </div>
+
+                <div class="form-group">
+                     <!-- Page Size Selector is handled by CSS class, defaulting to A4 for now. Could add a dropdown later if needed to switch class. -->
+                     <small>Default Page Size: A4 (210mm x 297mm)</small>
+                </div>
+
                 <div class="form-actions">
                     <button type="submit" class="btn-primary"><?php echo $editDoc ? 'Update Preview' : 'Generate Document'; ?></button>
                 </div>
@@ -269,8 +279,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
             <a href="create_document.php" class="btn-secondary">Start Over</a>
         </div>
 
-        <div class="page">
-            <?php echo $generatedHtml; ?>
+        <!-- Wrapper for Print Preview Logic -->
+        <div class="page-preview page-a4 print-area">
+            <?php if (isset($_POST['include_header'])): ?>
+                <div class="official-header">
+                    <div class="header-left">
+                        <img src="https://via.placeholder.com/80" alt="Logo">
+                    </div>
+                    <div class="header-center">
+                        <h1>Government of Yojak</h1>
+                        <?php
+                            $headerDept = getDepartment($deptId);
+                            $headerDeptName = $headerDept['name'] ?? 'Department';
+                        ?>
+                        <h2><?php echo htmlspecialchars($headerDeptName); ?></h2>
+                    </div>
+                    <div class="header-right">
+                        <p><strong>Date:</strong> <?php echo date('d-m-Y'); ?></p>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <div class="document-content">
+                <?php echo $generatedHtml; ?>
+            </div>
         </div>
     <?php endif; ?>
 
