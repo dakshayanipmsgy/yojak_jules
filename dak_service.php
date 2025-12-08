@@ -18,16 +18,47 @@ $message = '';
 $error = '';
 
 $deptUsers = getUsers($deptId);
+$deptRoles = getRoles($deptId);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'create_dak') {
         $type = $_POST['type'] ?? ''; // incoming, outgoing
-        $sender = trim($_POST['sender'] ?? '');
         $subject = trim($_POST['subject'] ?? '');
         $mode = $_POST['mode'] ?? '';
         $assignedTo = $_POST['assigned_to'] ?? '';
+
+        // Fields for outgoing logic
+        $destinationType = $_POST['destination_type'] ?? '';
+        $internalRecipientId = $_POST['internal_recipient'] ?? '';
+        $externalRecipient = trim($_POST['external_recipient'] ?? '');
+        $address = trim($_POST['address'] ?? '');
+        $senderRaw = trim($_POST['sender'] ?? ''); // For incoming
+
+        // Determine Sender/Recipient Name
+        $sender = '';
+        if ($type === 'incoming') {
+            $sender = $senderRaw;
+            // Clear outgoing specific fields for incoming
+            $destinationType = '';
+            $address = '';
+        } elseif ($type === 'outgoing') {
+            if ($destinationType === 'internal') {
+                if (isset($deptUsers[$internalRecipientId])) {
+                    $u = $deptUsers[$internalRecipientId];
+                    $rName = isset($deptRoles[$u['role']]) ? $deptRoles[$u['role']]['name'] : $u['role'];
+                    $sender = $u['full_name'] . ' - ' . $rName;
+                } else {
+                    $sender = "Unknown Internal User";
+                }
+                $address = '';
+            } else {
+                // External
+                $sender = $externalRecipient;
+                // Address is kept
+            }
+        }
 
         if (empty($type) || empty($sender) || empty($subject) || empty($mode)) {
             $error = "All fields are required.";
@@ -41,6 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'ref_no' => $refNo,
                 'type' => $type,
                 'sender' => $sender,
+                'destination_type' => $destinationType, // 'internal' or 'external' (only for outgoing)
+                'address' => $address, // Only for outgoing external
                 'subject' => $subject,
                 'mode' => $mode,
                 'assigned_to' => $assignedTo, // For Incoming
@@ -106,15 +139,51 @@ usort($outgoingDak, function($a, $b) { return strcmp($b['received_date'], $a['re
 
                     <div class="form-group">
                         <label>Type</label>
-                        <select name="type" required>
+                        <select name="type" id="dak_type" required onchange="toggleFields()">
                             <option value="incoming">Incoming (Received)</option>
                             <option value="outgoing">Outgoing (Sent)</option>
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label>Sender / Ministry / Recipient</label>
-                        <input type="text" name="sender" required placeholder="Who sent this or who is it for?">
+                    <!-- Incoming Field -->
+                    <div class="form-group" id="incoming_sender_group">
+                        <label>Sender / Ministry</label>
+                        <input type="text" name="sender" id="sender_input" placeholder="Who sent this?">
+                    </div>
+
+                    <!-- Outgoing Fields -->
+                    <div id="outgoing_options" style="display: none;">
+                        <div class="form-group">
+                            <label>Destination Type</label>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <label><input type="radio" name="destination_type" value="internal" onchange="toggleFields()"> Internal</label>
+                                <label><input type="radio" name="destination_type" value="external" checked onchange="toggleFields()"> External</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="internal_recipient_group" style="display: none;">
+                            <label>Select Recipient</label>
+                            <select name="internal_recipient">
+                                <option value="">-- Select Staff --</option>
+                                <?php foreach ($deptUsers as $uid => $u): ?>
+                                    <?php
+                                        $roleName = isset($deptRoles[$u['role']]) ? $deptRoles[$u['role']]['name'] : $u['role'];
+                                        $displayName = $u['full_name'] . ' - ' . $roleName;
+                                    ?>
+                                    <option value="<?php echo $uid; ?>"><?php echo htmlspecialchars($displayName); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="external_recipient_group">
+                            <label>Receiver Name / Ministry / Department</label>
+                            <input type="text" name="external_recipient" id="external_recipient_input">
+                        </div>
+
+                        <div class="form-group" id="address_group">
+                            <label>Address</label>
+                            <input type="text" name="address" placeholder="Recipient Address">
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -132,7 +201,7 @@ usort($outgoingDak, function($a, $b) { return strcmp($b['received_date'], $a['re
                         </select>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" id="assigned_to_group">
                         <label>Assigned To (For Incoming)</label>
                         <select name="assigned_to">
                             <option value="">-- Select User --</option>
@@ -217,7 +286,18 @@ usort($outgoingDak, function($a, $b) { return strcmp($b['received_date'], $a['re
                                     <?php foreach ($outgoingDak as $d): ?>
                                         <tr>
                                             <td><?php echo htmlspecialchars($d['ref_no']); ?></td>
-                                            <td><?php echo htmlspecialchars($d['sender']); ?></td>
+                                            <td>
+                                                <?php
+                                                    echo htmlspecialchars($d['sender']);
+                                                    if (isset($d['destination_type'])) {
+                                                        if ($d['destination_type'] === 'internal') {
+                                                            echo " (Internal)";
+                                                        } elseif ($d['destination_type'] === 'external') {
+                                                            echo " (External)";
+                                                        }
+                                                    }
+                                                ?>
+                                            </td>
                                             <td><?php echo htmlspecialchars($d['subject']); ?></td>
                                             <td><?php echo htmlspecialchars($d['received_date']); ?></td>
                                             <td><?php echo htmlspecialchars($d['mode']); ?></td>
@@ -245,9 +325,59 @@ usort($outgoingDak, function($a, $b) { return strcmp($b['received_date'], $a['re
             for (var i = 0; i < tabs.length; i++) {
                 tabs[i].classList.remove('active');
             }
-            // Add active class to clicked tab (needs better selector logic or just text match)
             event.target.classList.add('active');
         }
+
+        function toggleFields() {
+            var type = document.getElementById('dak_type').value;
+            var incomingSenderGroup = document.getElementById('incoming_sender_group');
+            var assignedToGroup = document.getElementById('assigned_to_group');
+            var outgoingOptions = document.getElementById('outgoing_options');
+
+            var internalGroup = document.getElementById('internal_recipient_group');
+            var externalGroup = document.getElementById('external_recipient_group');
+            var addressGroup = document.getElementById('address_group');
+
+            var senderInput = document.getElementById('sender_input');
+            var externalRecipientInput = document.getElementById('external_recipient_input');
+
+            if (type === 'incoming') {
+                incomingSenderGroup.style.display = 'block';
+                assignedToGroup.style.display = 'block';
+                outgoingOptions.style.display = 'none';
+
+                // Required handling
+                senderInput.setAttribute('required', 'required');
+                externalRecipientInput.removeAttribute('required');
+            } else {
+                // Outgoing
+                incomingSenderGroup.style.display = 'none';
+                assignedToGroup.style.display = 'none';
+                outgoingOptions.style.display = 'block';
+
+                senderInput.removeAttribute('required');
+
+                // Check destination type
+                var destType = document.querySelector('input[name="destination_type"]:checked').value;
+
+                if (destType === 'internal') {
+                    internalGroup.style.display = 'block';
+                    externalGroup.style.display = 'none';
+                    addressGroup.style.display = 'none';
+                    externalRecipientInput.removeAttribute('required');
+                } else {
+                    internalGroup.style.display = 'none';
+                    externalGroup.style.display = 'block';
+                    addressGroup.style.display = 'block';
+                    externalRecipientInput.setAttribute('required', 'required');
+                }
+            }
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            toggleFields();
+        };
     </script>
 </body>
 </html>
