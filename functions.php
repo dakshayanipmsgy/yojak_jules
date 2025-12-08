@@ -431,7 +431,7 @@ function appendMasterLog($deptId, $entry) {
  * @param string $newStatus (e.g., 'Pending Approval')
  * @return array ['success' => bool, 'message' => string]
  */
-function moveDocument($deptId, $docId, $targetUserId, $currentUserId, $newStatus = 'Pending Approval') {
+function moveDocument($deptId, $docId, $targetUserId, $currentUserId, $newStatus = 'Pending Approval', $dueDate = null) {
     // 1. Validate Target User
     $users = getUsers($deptId);
     if (!isset($users[$targetUserId])) {
@@ -448,6 +448,9 @@ function moveDocument($deptId, $docId, $targetUserId, $currentUserId, $newStatus
     $oldOwner = $doc['current_owner'];
     $doc['current_owner'] = $targetUserId;
     $doc['status'] = $newStatus;
+    if ($dueDate) {
+        $doc['due_date'] = $dueDate;
+    }
 
     // 4. Audit Log Layer A: Internal Document Log
     $logEntry = [

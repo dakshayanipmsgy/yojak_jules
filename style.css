@@ -129,6 +129,14 @@ body.login-page {
     border-bottom: none;
 }
 
+.data-table tr.expired td {
+    background-color: #ffe6e6; /* Light Red */
+    color: #a00; /* Darker Red */
+}
+.data-table tr.urgent td {
+    background-color: #fff3cd; /* Light Orange */
+}
+
 .text-center {
     text-align: center;
 }
