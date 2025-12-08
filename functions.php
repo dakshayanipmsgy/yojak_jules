@@ -132,7 +132,7 @@ function validateLogin($deptId, $userId, $password) {
  * @param string $password Initial Admin Password
  * @return array ['success' => bool, 'message' => string]
  */
-function createDepartment($name, $id, $password) {
+function createDepartment($name, $id, $password, $adminUserId = null) {
     // Basic validation
     if (!preg_match('/^[a-zA-Z0-9_]+$/', $id)) {
         return ['success' => false, 'message' => 'Invalid Department ID. Use alphanumeric and underscores only.'];
@@ -178,13 +178,14 @@ function createDepartment($name, $id, $password) {
     }
 
     // Create users/users.json
-    $userId = 'user.admin.' . $id;
+    $userId = $adminUserId ? $adminUserId : ('user.admin.' . $id);
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
     $users = [
         $userId => [
             'password' => $hashedPassword,
             'role' => $roleId,
-            'full_name' => 'Administrator'
+            'full_name' => 'Administrator',
+            'status' => 'active'
         ]
     ];
     if (!writeJSON('departments/' . $id . '/users/users.json', $users)) {
@@ -302,34 +303,47 @@ function createRole($deptId, $roleName) {
  * @param string $roleId
  * @return array ['success' => bool, 'message' => string]
  */
-function createUser($deptId, $fullName, $password, $roleId) {
+function createUser($deptId, $fullName, $password, $roleId, $customUserId = null) {
     $usersPath = 'departments/' . $deptId . '/users/users.json';
     $users = readJSON($usersPath);
     if ($users === null) {
         $users = [];
     }
 
-    // Extract role slug from role ID. Role ID format: {slug}.{dept_id}
-    // We can just explode by '.' and take the first part? No, slug might have dots? No, slug uses underscores.
-    // The format is strictly {slug}.{dept_id}.
-    // However, if dept_id contains dots? No, dept_id is alphanumeric + underscores.
+    // Single Admin Constraint
+    // Check if role is admin.{deptId}
+    if ($roleId === 'admin.' . $deptId) {
+        foreach ($users as $u) {
+            if (isset($u['role']) && $u['role'] === $roleId) {
+                // Check status. If status is missing, assume active.
+                $status = $u['status'] ?? 'active';
+                if ($status === 'active') {
+                    return ['success' => false, 'message' => 'Critical: This department already has an active Administrator. Please archive or suspend the existing Admin before creating a new one.'];
+                }
+            }
+        }
+    }
 
-    // Let's rely on the roleId passed.
-    // ID Generation Logic: user.{role_slug}.{dept_id}
-    // We need role_slug.
-    // roleId = {slug}.{deptId}
-    // So role_slug = str_replace('.' . $deptId, '', $roleId);
+    $userId = '';
 
-    $roleSlug = str_replace('.' . $deptId, '', $roleId);
+    if (!empty($customUserId)) {
+        // Custom ID Logic
+        if (isset($users[$customUserId])) {
+            return ['success' => false, 'message' => 'ID already taken.'];
+        }
+        $userId = $customUserId;
+    } else {
+        // Auto-Generate Logic
+        $roleSlug = str_replace('.' . $deptId, '', $roleId);
+        $baseUserId = 'user.' . $roleSlug . '.' . $deptId;
+        $userId = $baseUserId;
 
-    $baseUserId = 'user.' . $roleSlug . '.' . $deptId;
-    $userId = $baseUserId;
-
-    // Handle Duplicates: append number (e.g., _01)
-    $counter = 1;
-    while (isset($users[$userId])) {
-        $userId = $baseUserId . '_' . sprintf('%02d', $counter);
-        $counter++;
+        // Handle Duplicates: append number (e.g., _01)
+        $counter = 1;
+        while (isset($users[$userId])) {
+            $userId = $baseUserId . '_' . sprintf('%02d', $counter);
+            $counter++;
+        }
     }
 
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
@@ -337,7 +351,8 @@ function createUser($deptId, $fullName, $password, $roleId) {
     $users[$userId] = [
         'full_name' => $fullName,
         'password' => $hashedPassword,
-        'role' => $roleId
+        'role' => $roleId,
+        'status' => 'active'
     ];
 
     if (writeJSON($usersPath, $users)) {
