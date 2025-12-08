@@ -13,6 +13,12 @@ $deptId = $_SESSION['dept_id'] ?? null;
 $message = '';
 $error = '';
 
+$isAdmin = false;
+if (!$isSuperadmin && $deptId) {
+    $roleId = $_SESSION['role_id'];
+    $isAdmin = ($roleId === 'admin.' . $deptId);
+}
+
 // Handle Actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -35,47 +41,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     // Department Admin Actions
-    elseif (!$isSuperadmin && $deptId) {
-        // Verify user is admin of this department or has permission (for now assume Dept Admin role allows this)
-        // The prompt says "Allow the Dept Admin to...".
-        // We can check if role starts with 'admin.' or just assume Dashboard access implies it for now?
-        // Prompt says: "If the user is a Department Admin (role: admin.{dept_id}), show the Department Dashboard."
-        // We should double check role.
-
-        $roleId = $_SESSION['role_id'];
-        $isAdmin = ($roleId === 'admin.' . $deptId);
-
-        if ($isAdmin) {
-            if ($action === 'create_role') {
-                $roleName = trim($_POST['role_name'] ?? '');
-                if (empty($roleName)) {
-                    $error = "Role Name is required.";
+    elseif (!$isSuperadmin && $deptId && $isAdmin) {
+        if ($action === 'create_role') {
+            $roleName = trim($_POST['role_name'] ?? '');
+            if (empty($roleName)) {
+                $error = "Role Name is required.";
+            } else {
+                $result = createRole($deptId, $roleName);
+                if ($result['success']) {
+                    $message = $result['message'];
                 } else {
-                    $result = createRole($deptId, $roleName);
-                    if ($result['success']) {
-                        $message = $result['message'];
-                    } else {
-                        $error = $result['message'];
-                    }
-                }
-            } elseif ($action === 'create_user') {
-                $fullName = trim($_POST['full_name'] ?? '');
-                $password = $_POST['password'] ?? '';
-                $targetRoleId = $_POST['role_id'] ?? '';
-
-                if (empty($fullName) || empty($password) || empty($targetRoleId)) {
-                    $error = "All fields are required.";
-                } else {
-                    $result = createUser($deptId, $fullName, $password, $targetRoleId);
-                    if ($result['success']) {
-                        $message = $result['message'];
-                    } else {
-                        $error = $result['message'];
-                    }
+                    $error = $result['message'];
                 }
             }
-        } else {
-             $error = "Unauthorized action.";
+        } elseif ($action === 'create_user') {
+            $fullName = trim($_POST['full_name'] ?? '');
+            $password = $_POST['password'] ?? '';
+            $targetRoleId = $_POST['role_id'] ?? '';
+
+            if (empty($fullName) || empty($password) || empty($targetRoleId)) {
+                $error = "All fields are required.";
+            } else {
+                $result = createUser($deptId, $fullName, $password, $targetRoleId);
+                if ($result['success']) {
+                    $message = $result['message'];
+                } else {
+                    $error = $result['message'];
+                }
+            }
         }
     }
 }
@@ -190,67 +183,94 @@ if ($isSuperadmin) {
                 </div>
 
             <?php else: ?>
-                <!-- DEPARTMENT ADMIN VIEW -->
+                <!-- DEPARTMENT DASHBOARD -->
 
                 <div class="dashboard-grid">
-                    <!-- Manage Roles -->
+                    <!-- Common Actions -->
                     <section class="card">
                         <div class="section-header">
-                            <h2>Manage Roles</h2>
+                            <h2>Work Area</h2>
                         </div>
-                        <form method="POST" action="" class="inline-form">
-                            <input type="hidden" name="action" value="create_role">
-                            <div class="form-group">
-                                <input type="text" name="role_name" placeholder="New Role Name (e.g. Clerk)" required>
+                        <p style="margin-bottom: 1rem;">Generate official documents using templates.</p>
+                        <a href="create_document.php" class="btn-primary">Create New Document</a>
+                    </section>
+
+                    <?php if ($isAdmin): ?>
+                        <!-- Admin Actions -->
+                        <section class="card">
+                            <div class="section-header">
+                                <h2>Administration</h2>
                             </div>
-                            <button type="submit" class="btn-secondary">Add Role</button>
-                        </form>
-
-                        <ul class="list-group">
-                            <?php foreach ($deptRoles as $rId => $role): ?>
+                            <ul class="list-group">
                                 <li>
-                                    <strong><?php echo htmlspecialchars($role['name']); ?></strong>
-                                    <small>(ID: <?php echo htmlspecialchars($rId); ?>)</small>
+                                    <strong>Contractors</strong>
+                                    <a href="manage_contractors.php" class="btn-small">Manage</a>
                                 </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </section>
+                                <li>
+                                    <strong>Templates</strong>
+                                    <a href="manage_templates.php" class="btn-small">Manage</a>
+                                </li>
+                            </ul>
+                        </section>
 
-                    <!-- Manage Users -->
-                    <section class="card">
-                        <div class="section-header">
-                            <h2>Manage Users</h2>
-                            <button id="showCreateUserBtn" class="btn-primary">Add User</button>
-                        </div>
+                        <!-- Manage Roles -->
+                        <section class="card">
+                            <div class="section-header">
+                                <h2>Manage Roles</h2>
+                            </div>
+                            <form method="POST" action="" class="inline-form">
+                                <input type="hidden" name="action" value="create_role">
+                                <div class="form-group">
+                                    <input type="text" name="role_name" placeholder="New Role Name" required>
+                                </div>
+                                <button type="submit" class="btn-secondary">Add</button>
+                            </form>
 
-                         <div class="table-responsive">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>User ID</th>
-                                        <th>Role</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($deptUsers as $uId => $user): ?>
+                            <ul class="list-group">
+                                <?php foreach ($deptRoles as $rId => $role): ?>
+                                    <li>
+                                        <strong><?php echo htmlspecialchars($role['name']); ?></strong>
+                                        <small>(ID: <?php echo htmlspecialchars($rId); ?>)</small>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </section>
+
+                        <!-- Manage Users -->
+                        <section class="card">
+                            <div class="section-header">
+                                <h2>Manage Users</h2>
+                                <button id="showCreateUserBtn" class="btn-primary">Add User</button>
+                            </div>
+
+                             <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td><?php echo htmlspecialchars($user['full_name'] ?? 'N/A'); ?></td>
-                                            <td><?php echo htmlspecialchars($uId); ?></td>
-                                            <td>
-                                                <?php
-                                                    $rId = $user['role'];
-                                                    echo htmlspecialchars($deptRoles[$rId]['name'] ?? $rId);
-                                                ?>
-                                            </td>
+                                            <th>Name</th>
+                                            <th>Role</th>
                                         </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($deptUsers as $uId => $user): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($user['full_name'] ?? 'N/A'); ?></td>
+                                                <td>
+                                                    <?php
+                                                        $rId = $user['role'];
+                                                        echo htmlspecialchars($deptRoles[$rId]['name'] ?? $rId);
+                                                    ?>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    <?php endif; ?>
                 </div>
 
+                <?php if ($isAdmin): ?>
                 <div id="createUserModal" class="modal">
                     <div class="modal-content">
                         <span class="close-btn" id="closeUserModal">&times;</span>
@@ -280,6 +300,7 @@ if ($isSuperadmin) {
                         </form>
                     </div>
                 </div>
+                <?php endif; ?>
 
             <?php endif; ?>
 
@@ -287,29 +308,25 @@ if ($isSuperadmin) {
     </div>
 
     <script>
-        // Modal Logic (Reused for both views)
+        // Modal Logic
         function setupModal(modalId, btnId, closeClass) {
             var modal = document.getElementById(modalId);
             var btn = document.getElementById(btnId);
-            var span = document.querySelector(closeClass); // Might need specific selection
-
+            // closeClass logic requires iteration if class
             if (modal && btn) {
-                btn.onclick = function() {
-                    modal.style.display = "block";
-                }
+                btn.onclick = function() { modal.style.display = "block"; }
             }
-
-            // Assuming simplified global close logic or specific close buttons
         }
 
         // Superadmin Modal
         var saModal = document.getElementById("createDepartmentModal");
         var saBtn = document.getElementById("showCreateFormBtn");
-        var saClose = document.getElementsByClassName("close-btn")[0];
+        var saClose = document.getElementsByClassName("close-btn");
 
         if (saModal && saBtn) {
             saBtn.onclick = function() { saModal.style.display = "block"; }
-            if (saClose) saClose.onclick = function() { saModal.style.display = "none"; }
+            // Assuming first close-btn is inside saModal if multiple exist, but here we separate
+            if (saClose[0]) saClose[0].onclick = function() { saModal.style.display = "none"; }
         }
 
         // Dept Admin Modal
@@ -323,12 +340,8 @@ if ($isSuperadmin) {
         }
 
         window.onclick = function(event) {
-            if (event.target == saModal) {
-                saModal.style.display = "none";
-            }
-            if (event.target == daModal) {
-                daModal.style.display = "none";
-            }
+            if (event.target == saModal) saModal.style.display = "none";
+            if (event.target == daModal) daModal.style.display = "none";
         }
     </script>
 </body>

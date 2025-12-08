@@ -1,0 +1,6 @@
+{
+    "admin.test_dept": {
+        "name": "Department Administrator",
+        "permissions": "all"
+    }
+}

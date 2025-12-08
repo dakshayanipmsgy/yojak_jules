@@ -1,0 +1,7 @@
+{
+    "user.admin.test_dept": {
+        "password": "$2y$10$Z2AQt.JjDvskHfU\/UEtGwuSKw2OzucsRCcpQbTm\/cdVoC48714IRC",
+        "role": "admin.test_dept",
+        "full_name": "Administrator"
+    }
+}
