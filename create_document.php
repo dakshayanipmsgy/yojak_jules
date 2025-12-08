@@ -17,6 +17,19 @@ $generatedHtml = '';
 $contractors = readJSON('departments/' . $deptId . '/data/contractors.json') ?? [];
 $templates = readJSON('departments/' . $deptId . '/templates/templates.json') ?? [];
 
+// Handle Edit Mode
+$editDocId = $_GET['edit_doc_id'] ?? '';
+$editDoc = null;
+if ($editDocId) {
+    $editDoc = getDocument($deptId, $editDocId);
+    if ($editDoc && $editDoc['status'] === 'Draft' && $editDoc['created_by'] === $_SESSION['user_id']) {
+        // Valid edit
+    } else {
+        $editDoc = null; // Invalid or not allowed
+        $error = "Cannot edit this document.";
+    }
+}
+
 // Handle Generation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     $templateId = $_POST['template_id'] ?? '';
@@ -54,9 +67,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                 $replacements['{{department_name}}'] = $deptMeta['name'] ?? 'Department';
 
                 $generatedHtml = str_replace(array_keys($replacements), array_values($replacements), $content);
+
+                // Keep the titles to pass to save logic
+                $documentTitle = $templateData['title'] . ' - ' . $contractorData['name'];
+
             } else {
                 $error = "Template file not found.";
             }
+        }
+    }
+}
+
+// Handle Save
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
+    $title = $_POST['title'] ?? 'Untitled Document';
+    $htmlContent = $_POST['html_content'] ?? '';
+    $templateIdSaved = $_POST['template_id'] ?? '';
+    $contractorIdSaved = $_POST['contractor_id'] ?? '';
+    $existingDocId = $_POST['existing_doc_id'] ?? '';
+
+    if (empty($htmlContent)) {
+        $error = "No content to save.";
+    } else {
+        $userId = $_SESSION['user_id'];
+
+        if ($existingDocId) {
+            // Update existing
+            $docId = $existingDocId;
+            $docData = getDocument($deptId, $docId);
+            if (!$docData) {
+                die("Error: Document not found.");
+            }
+            // Update fields
+            $docData['title'] = $title;
+            $docData['content'] = $htmlContent;
+            $docData['template_id'] = $templateIdSaved;
+            $docData['contractor_id'] = $contractorIdSaved;
+            // Don't change created_by, created_at, or status (assumed still Draft if we are here)
+
+            $docData['history'][] = [
+                'action' => 'updated',
+                'from' => $userId,
+                'to' => $userId,
+                'time' => date('Y-m-d H:i:s')
+            ];
+
+        } else {
+            // Create New
+            $docId = generateDocumentID();
+            $docData = [
+                'id' => $docId,
+                'title' => $title,
+                'content' => $htmlContent,
+                'created_by' => $userId,
+                'created_at' => date('Y-m-d H:i:s'),
+                'current_owner' => $userId,
+                'status' => 'Draft',
+                'history' => [],
+                'template_id' => $templateIdSaved,
+                'contractor_id' => $contractorIdSaved
+            ];
+
+            // Initial Log
+            $docData['history'][] = [
+                'action' => 'created',
+                'from' => $userId,
+                'to' => $userId,
+                'time' => date('Y-m-d H:i:s')
+            ];
+        }
+
+        if (saveDocument($deptId, $docId, $docData)) {
+            $message = "Document saved as Draft. ID: $docId";
+            // Redirect to dashboard or view page
+            header("Location: view_document.php?id=$docId");
+            exit;
+        } else {
+            $error = "Failed to save document.";
         }
     }
 }
@@ -120,19 +207,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
 
     <?php if (!$generatedHtml): ?>
         <div class="selection-panel no-print">
-            <h2>Generate New Document</h2>
+            <h2><?php echo $editDoc ? 'Edit Document: ' . htmlspecialchars($editDoc['title']) : 'Generate New Document'; ?></h2>
+
             <?php if ($error): ?>
                 <div class="error-message"><?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
 
             <form method="POST" action="">
                 <input type="hidden" name="generate" value="1">
+                <?php if ($editDocId): ?>
+                    <input type="hidden" name="existing_doc_id" value="<?php echo htmlspecialchars($editDocId); ?>">
+                <?php endif; ?>
+
                 <div class="form-group">
                     <label>Select Template</label>
                     <select name="template_id" required>
                         <option value="">-- Choose Template --</option>
                         <?php foreach ($templates as $t): ?>
-                            <option value="<?php echo $t['id']; ?>"><?php echo htmlspecialchars($t['title']); ?></option>
+                            <?php
+                                $selected = '';
+                                if (isset($_POST['template_id']) && $_POST['template_id'] == $t['id']) $selected = 'selected';
+                                elseif ($editDoc && isset($editDoc['template_id']) && $editDoc['template_id'] == $t['id']) $selected = 'selected';
+                            ?>
+                            <option value="<?php echo $t['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($t['title']); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -142,20 +239,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                     <select name="contractor_id" required>
                         <option value="">-- Choose Contractor --</option>
                         <?php foreach ($contractors as $c): ?>
-                            <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?> (<?php echo htmlspecialchars($c['mobile']); ?>)</option>
+                            <?php
+                                $selected = '';
+                                if (isset($_POST['contractor_id']) && $_POST['contractor_id'] == $c['id']) $selected = 'selected';
+                                elseif ($editDoc && isset($editDoc['contractor_id']) && $editDoc['contractor_id'] == $c['id']) $selected = 'selected';
+                            ?>
+                            <option value="<?php echo $c['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($c['name']); ?> (<?php echo htmlspecialchars($c['mobile']); ?>)</option>
                         <?php endforeach; ?>
                     </select>
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn-primary">Generate Document</button>
+                    <button type="submit" class="btn-primary"><?php echo $editDoc ? 'Update Preview' : 'Generate Document'; ?></button>
                 </div>
             </form>
         </div>
     <?php else: ?>
         <div class="preview-actions no-print">
             <button onclick="window.print()" class="btn-primary">Print</button>
-            <button class="btn-secondary" onclick="alert('Save as Draft logic coming soon!')">Save as Draft</button>
+
+            <form method="POST" action="" style="display:inline-block;">
+                <input type="hidden" name="save_document" value="1">
+                <input type="hidden" name="html_content" value="<?php echo htmlspecialchars($generatedHtml); ?>">
+                <input type="hidden" name="title" value="<?php echo htmlspecialchars($documentTitle ?? 'New Document'); ?>">
+                <input type="hidden" name="template_id" value="<?php echo htmlspecialchars($templateId); ?>">
+                <input type="hidden" name="contractor_id" value="<?php echo htmlspecialchars($contractorId); ?>">
+                <?php if ($editDocId): ?>
+                    <input type="hidden" name="existing_doc_id" value="<?php echo htmlspecialchars($editDocId); ?>">
+                <?php endif; ?>
+
+                <button type="submit" class="btn-secondary"><?php echo $editDocId ? 'Update Draft' : 'Save as Draft'; ?></button>
+            </form>
+
             <a href="create_document.php" class="btn-secondary">Start Over</a>
         </div>
 

@@ -78,6 +78,8 @@ $departments = [];
 $deptData = null;
 $deptRoles = [];
 $deptUsers = [];
+$inbox = [];
+$outbox = [];
 
 if ($isSuperadmin) {
     $departments = getAllDepartments();
@@ -85,6 +87,8 @@ if ($isSuperadmin) {
     $deptData = getDepartment($deptId);
     $deptRoles = getRoles($deptId);
     $deptUsers = getUsers($deptId);
+    $inbox = getInbox($deptId, $_SESSION['user_id']);
+    $outbox = getOutbox($deptId, $_SESSION['user_id']);
 }
 
 ?>
@@ -186,6 +190,84 @@ if ($isSuperadmin) {
                 <!-- DEPARTMENT DASHBOARD -->
 
                 <div class="dashboard-grid">
+                    <!-- Inbox -->
+                    <section class="card" style="grid-column: span 2;">
+                        <div class="section-header">
+                            <h2>Inbox (Assigned to Me)</h2>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Received From</th>
+                                        <th>Date</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($inbox)): ?>
+                                        <tr><td colspan="4">No documents in inbox.</td></tr>
+                                    <?php else: ?>
+                                        <?php foreach ($inbox as $doc): ?>
+                                            <?php
+                                                // Get 'Received From' - last history entry or created_by
+                                                $receivedFrom = $doc['created_by'];
+                                                if (!empty($doc['history'])) {
+                                                    $lastEntry = end($doc['history']);
+                                                    if ($lastEntry['action'] === 'moved') {
+                                                        $receivedFrom = $lastEntry['from'];
+                                                    }
+                                                }
+                                            ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($doc['title']); ?></td>
+                                                <td><?php echo htmlspecialchars($receivedFrom); ?></td>
+                                                <td><?php echo htmlspecialchars($doc['created_at']); ?></td>
+                                                <td><a href="view_document.php?id=<?php echo $doc['id']; ?>" class="btn-small">Open</a></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Outbox -->
+                    <section class="card" style="grid-column: span 2;">
+                        <div class="section-header">
+                            <h2>Outbox (Sent / Created)</h2>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Currently With</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($outbox)): ?>
+                                        <tr><td colspan="5">No sent documents.</td></tr>
+                                    <?php else: ?>
+                                        <?php foreach ($outbox as $doc): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($doc['title']); ?></td>
+                                                <td><?php echo htmlspecialchars($doc['current_owner']); ?></td>
+                                                <td><?php echo htmlspecialchars($doc['created_at']); ?></td>
+                                                <td><?php echo htmlspecialchars($doc['status']); ?></td>
+                                                <td><a href="view_document.php?id=<?php echo $doc['id']; ?>" class="btn-small">View</a></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
                     <!-- Common Actions -->
                     <section class="card">
                         <div class="section-header">

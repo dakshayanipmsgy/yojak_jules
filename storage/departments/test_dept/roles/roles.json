@@ -2,5 +2,13 @@
     "admin.test_dept": {
         "name": "Department Administrator",
         "permissions": "all"
+    },
+    "clerk.test_dept": {
+        "name": "Clerk",
+        "permissions": []
+    },
+    "officer.test_dept": {
+        "name": "Officer",
+        "permissions": []
     }
 }
