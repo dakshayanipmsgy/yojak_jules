@@ -1,8 +1,1 @@
-{
-    "user.admin.test_dept": {
-        "password": "$2y$10$4uS\/YM3jQ7blfNV.Lh0ljOSkbPphCuj4OPN.SjO5Ri.4R2JwQdIk6",
-        "role": "admin.test_dept",
-        "full_name": "Administrator",
-        "status": "active"
-    }
-}
+{"user.admin.test_dept":{"full_name":"Admin User","role":"admin.test_dept","status":"active"}}

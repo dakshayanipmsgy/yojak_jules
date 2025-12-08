@@ -9,7 +9,25 @@ $generatedHtml = '';
 
 // Load Data for Dropdowns
 $contractors = readJSON('departments/' . $deptId . '/data/contractors.json') ?? [];
-$templates = readJSON('departments/' . $deptId . '/templates/templates.json') ?? [];
+$localTemplates = readJSON('departments/' . $deptId . '/templates/templates.json') ?? [];
+$systemTemplates = readJSON('system/templates/templates.json') ?? [];
+
+// Merge Templates
+// We mark system templates with [Global] tag in UI
+$templates = [];
+
+// System first
+foreach ($systemTemplates as $t) {
+    $t['is_global'] = true;
+    $t['display_title'] = $t['title'] . ' [Global]';
+    $templates[$t['id']] = $t;
+}
+// Local second (can overwrite if IDs conflict, but IDs should be unique enough)
+foreach ($localTemplates as $t) {
+    $t['is_global'] = false;
+    $t['display_title'] = $t['title'];
+    $templates[$t['id']] = $t;
+}
 
 // Handle Edit Mode
 $editDocId = $_GET['edit_doc_id'] ?? '';
@@ -44,7 +62,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
             $contractorData = $contractors[$contractorId];
 
             // Load Template Content
-            $templatePath = STORAGE_PATH . '/departments/' . $deptId . '/templates/' . $templateData['filename'];
+            $templatePath = '';
+            if (isset($templateData['is_global']) && $templateData['is_global']) {
+                $templatePath = STORAGE_PATH . '/system/templates/' . $templateData['filename'];
+            } else {
+                $templatePath = STORAGE_PATH . '/departments/' . $deptId . '/templates/' . $templateData['filename'];
+            }
+
             if (file_exists($templatePath)) {
                 $content = file_get_contents($templatePath);
 
@@ -222,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                                 if (isset($_POST['template_id']) && $_POST['template_id'] == $t['id']) $selected = 'selected';
                                 elseif ($editDoc && isset($editDoc['template_id']) && $editDoc['template_id'] == $t['id']) $selected = 'selected';
                             ?>
-                            <option value="<?php echo $t['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($t['title']); ?></option>
+                            <option value="<?php echo $t['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($t['display_title']); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>

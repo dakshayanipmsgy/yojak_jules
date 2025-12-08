@@ -275,12 +275,18 @@ function createSlug($string) {
  *
  * @param string $deptId
  * @param string $roleName
+ * @param string $customSlug (Optional)
  * @return array ['success' => bool, 'message' => string]
  */
-function createRole($deptId, $roleName) {
-    $roleSlug = createSlug($roleName);
+function createRole($deptId, $roleName, $customSlug = null) {
+    if ($customSlug) {
+        $roleSlug = strtoupper(preg_replace('/[^a-zA-Z0-9_]/', '', $customSlug));
+    } else {
+        $roleSlug = createSlug($roleName);
+    }
+
     if (empty($roleSlug)) {
-        return ['success' => false, 'message' => 'Invalid role name.'];
+        return ['success' => false, 'message' => 'Invalid role ID/name.'];
     }
 
     $roleId = $roleSlug . '.' . $deptId;
