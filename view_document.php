@@ -5,8 +5,8 @@ require_once 'functions.php';
 $deptId = $_SESSION['dept_id'];
 $userId = $_SESSION['user_id'];
 $docId = $_GET['id'] ?? '';
-$message = '';
-$error = '';
+$message = $_GET['message'] ?? '';
+$error = $_GET['error'] ?? '';
 
 if (empty($docId)) {
     header('Location: dashboard.php');
@@ -184,6 +184,55 @@ foreach ($deptUsers as $uid => $u) {
 
     <div class="page">
         <?php echo $doc['content']; ?>
+    </div>
+
+    <div class="attachments-panel no-print" style="max-width: 210mm; margin: 2rem auto; padding: 1rem; background: white; border: 1px solid #dee2e6; border-radius: 4px;">
+        <h3>Supporting Documents</h3>
+
+        <?php if (!empty($doc['attachments'])): ?>
+            <ul style="list-style: none; padding: 0;">
+                <?php foreach ($doc['attachments'] as $att): ?>
+                    <li style="margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
+                        <div>
+                            <span style="font-size: 1.2rem; margin-right: 0.5rem;">📎</span>
+                            <a href="view_attachment.php?doc_id=<?php echo $docId; ?>&file=<?php echo urlencode($att['filename']); ?>" target="_blank" style="text-decoration: none; color: #0056b3; font-weight: 500;">
+                                <?php echo htmlspecialchars($att['original_name'] ?? $att['filename']); ?>
+                            </a>
+                            <span style="font-size: 0.8rem; color: #6c757d; margin-left: 1rem;">
+                                (Uploaded by <?php echo htmlspecialchars($att['uploaded_by']); ?>)
+                            </span>
+                        </div>
+                        <?php if ($isOwner): ?>
+                            <form method="POST" action="upload_attachment.php" onsubmit="return confirm('Are you sure you want to delete this attachment?');" style="margin: 0;">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="doc_id" value="<?php echo $docId; ?>">
+                                <input type="hidden" name="filename" value="<?php echo htmlspecialchars($att['filename']); ?>">
+                                <button type="submit" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 0.9rem;">Delete</button>
+                            </form>
+                        <?php endif; ?>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php else: ?>
+            <p style="color: #6c757d;">No supporting documents attached.</p>
+        <?php endif; ?>
+
+        <?php if ($isOwner): ?>
+            <div style="margin-top: 1.5rem; border-top: 2px dashed #dee2e6; padding-top: 1rem;">
+                <h4>Upload Attachments</h4>
+                <form method="POST" action="upload_attachment.php" enctype="multipart/form-data">
+                    <input type="hidden" name="doc_id" value="<?php echo $docId; ?>">
+                    <input type="hidden" name="action" value="upload">
+                    <div style="margin-bottom: 1rem;">
+                        <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.png,.jpeg,.docx,.xlsx" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Upload Files</button>
+                    <p style="font-size: 0.85rem; color: #6c757d; margin-top: 0.5rem;">
+                        Allowed: PDF, JPG, PNG, DOCX, XLSX. Max size per file depends on server settings.
+                    </p>
+                </form>
+            </div>
+        <?php endif; ?>
     </div>
 
     <div class="history-panel no-print">
