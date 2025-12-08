@@ -77,19 +77,48 @@ function generateID($prefix = '') {
 
 /**
  * Validates user credentials.
- * Currently only supports Superadmin.
+ * Handles both Superadmin and Department users.
  *
- * @param string $username
+ * @param string $deptId (Optional for Superadmin)
+ * @param string $userId
  * @param string $password
- * @return bool
+ * @return array|bool Returns user data array on success, false on failure.
  */
-function validateLogin($username, $password) {
-    // For now, only check system admin
-    // In future, this would check department users too
+function validateLogin($deptId, $userId, $password) {
+    // 1. Check Superadmin
+    if ($userId === 'admin' && empty($deptId)) {
+        $config = readJSON('system/global_config.json');
+        if ($config && isset($config['username']) && $config['username'] === 'admin') {
+            if (password_verify($password, $config['password_hash'])) {
+                 return ['role' => 'superadmin', 'user_id' => 'admin'];
+            }
+        }
+        return false;
+    }
 
-    $config = readJSON('system/global_config.json');
-    if ($config && $username === $config['username']) {
-        return password_verify($password, $config['password_hash']);
+    // 2. Check Department User
+    if (empty($deptId)) {
+        return false; // Department ID required for non-superadmin
+    }
+
+    $deptPath = 'departments/' . $deptId;
+    // Check if department exists (via metadata or directory)
+    if (!is_dir(STORAGE_PATH . '/' . $deptPath)) {
+        return false;
+    }
+
+    $users = readJSON($deptPath . '/users/users.json');
+    if (!$users || !isset($users[$userId])) {
+        return false;
+    }
+
+    $userData = $users[$userId];
+    if (password_verify($password, $userData['password'])) {
+        return [
+            'role_id' => $userData['role'],
+            'user_id' => $userId,
+            'dept_id' => $deptId
+        ];
     }
 
     return false;
@@ -141,7 +170,7 @@ function createDepartment($name, $id, $password) {
     $roles = [
         $roleId => [
             'name' => 'Department Administrator',
-            'permissions' => 'all'
+            'permissions' => 'all' // Full permissions for dept admin
         ]
     ];
     if (!writeJSON('departments/' . $id . '/roles/roles.json', $roles)) {
@@ -154,7 +183,8 @@ function createDepartment($name, $id, $password) {
     $users = [
         $userId => [
             'password' => $hashedPassword,
-            'role' => $roleId
+            'role' => $roleId,
+            'full_name' => 'Administrator'
         ]
     ];
     if (!writeJSON('departments/' . $id . '/users/users.json', $users)) {
@@ -192,6 +222,150 @@ function getAllDepartments() {
         }
     }
     return $departments;
+}
+
+/**
+ * Checks if the current user has the required permission/role.
+ *
+ * @param string $requiredRole The role ID required.
+ * @return bool
+ */
+function checkPermission($requiredRole) {
+    if (!isset($_SESSION['role_id'])) {
+        // If it's superadmin, they might have access, but contexts are usually separate.
+        // If the check is for a department specific thing, superadmin shouldn't be here mostly unless specific override.
+        // Prompt says "Sealed Room". Superadmin manages departments but is strictly prohibited from viewing or accessing internal department files.
+        return false;
+    }
+
+    // Strict equality for now as per simple role requirement.
+    // Ideally we might check permissions inside the role object, but prompt says "checkPermission($required_role)".
+    return $_SESSION['role_id'] === $requiredRole;
+}
+
+/**
+ * Converts a string to a clean slug.
+ *
+ * @param string $string
+ * @return string
+ */
+function createSlug($string) {
+    $slug = strtolower(trim($string));
+    $slug = preg_replace('/[^a-z0-9]+/', '_', $slug);
+    $slug = trim($slug, '_');
+    return $slug;
+}
+
+/**
+ * Creates a new role in a department.
+ *
+ * @param string $deptId
+ * @param string $roleName
+ * @return array ['success' => bool, 'message' => string]
+ */
+function createRole($deptId, $roleName) {
+    $roleSlug = createSlug($roleName);
+    if (empty($roleSlug)) {
+        return ['success' => false, 'message' => 'Invalid role name.'];
+    }
+
+    $roleId = $roleSlug . '.' . $deptId;
+    $rolesPath = 'departments/' . $deptId . '/roles/roles.json';
+
+    $roles = readJSON($rolesPath);
+    if ($roles === null) {
+        $roles = []; // Should exist if department exists
+    }
+
+    if (isset($roles[$roleId])) {
+        return ['success' => false, 'message' => 'Role already exists.'];
+    }
+
+    $roles[$roleId] = [
+        'name' => $roleName,
+        'permissions' => [] // Default permissions
+    ];
+
+    if (writeJSON($rolesPath, $roles)) {
+        return ['success' => true, 'message' => 'Role created successfully.'];
+    }
+
+    return ['success' => false, 'message' => 'Failed to save role.'];
+}
+
+/**
+ * Creates a new user in a department.
+ *
+ * @param string $deptId
+ * @param string $fullName
+ * @param string $password
+ * @param string $roleId
+ * @return array ['success' => bool, 'message' => string]
+ */
+function createUser($deptId, $fullName, $password, $roleId) {
+    $usersPath = 'departments/' . $deptId . '/users/users.json';
+    $users = readJSON($usersPath);
+    if ($users === null) {
+        $users = [];
+    }
+
+    // Extract role slug from role ID. Role ID format: {slug}.{dept_id}
+    // We can just explode by '.' and take the first part? No, slug might have dots? No, slug uses underscores.
+    // The format is strictly {slug}.{dept_id}.
+    // However, if dept_id contains dots? No, dept_id is alphanumeric + underscores.
+
+    // Let's rely on the roleId passed.
+    // ID Generation Logic: user.{role_slug}.{dept_id}
+    // We need role_slug.
+    // roleId = {slug}.{deptId}
+    // So role_slug = str_replace('.' . $deptId, '', $roleId);
+
+    $roleSlug = str_replace('.' . $deptId, '', $roleId);
+
+    $baseUserId = 'user.' . $roleSlug . '.' . $deptId;
+    $userId = $baseUserId;
+
+    // Handle Duplicates: append number (e.g., _01)
+    $counter = 1;
+    while (isset($users[$userId])) {
+        $userId = $baseUserId . '_' . sprintf('%02d', $counter);
+        $counter++;
+    }
+
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+    $users[$userId] = [
+        'full_name' => $fullName,
+        'password' => $hashedPassword,
+        'role' => $roleId
+    ];
+
+    if (writeJSON($usersPath, $users)) {
+        return ['success' => true, 'message' => 'User created successfully. ID: ' . $userId];
+    }
+
+    return ['success' => false, 'message' => 'Failed to save user.'];
+}
+
+/**
+ * Get department details.
+ */
+function getDepartment($deptId) {
+    return readJSON('departments/' . $deptId . '/department.json');
+}
+
+/**
+ * Get roles for a department.
+ */
+function getRoles($deptId) {
+    return readJSON('departments/' . $deptId . '/roles/roles.json') ?? [];
+}
+
+/**
+ * Get users for a department.
+ */
+function getUsers($deptId) {
+    return readJSON('departments/' . $deptId . '/users/users.json') ?? [];
 }
 
 ?>
