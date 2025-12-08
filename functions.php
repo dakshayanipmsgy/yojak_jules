@@ -368,4 +368,171 @@ function getUsers($deptId) {
     return readJSON('departments/' . $deptId . '/users/users.json') ?? [];
 }
 
+/* ==========================================
+   DOCUMENT MANAGEMENT FUNCTIONS
+   ========================================== */
+
+/**
+ * Generates a unique Document ID.
+ * Format: DOC_YYYY_RANDOM
+ */
+function generateDocumentID() {
+    return 'DOC_' . date('Y') . '_' . strtoupper(bin2hex(random_bytes(4)));
+}
+
+/**
+ * Saves a document to the storage.
+ *
+ * @param string $deptId
+ * @param string $docId
+ * @param array $data Document data structure
+ * @return bool
+ */
+function saveDocument($deptId, $docId, $data) {
+    $path = 'departments/' . $deptId . '/documents/' . $docId . '.json';
+    return writeJSON($path, $data);
+}
+
+/**
+ * Retrieves a single document.
+ *
+ * @param string $deptId
+ * @param string $docId
+ * @return array|null
+ */
+function getDocument($deptId, $docId) {
+    $path = 'departments/' . $deptId . '/documents/' . $docId . '.json';
+    return readJSON($path);
+}
+
+/**
+ * Appends an entry to the Master Department Log.
+ *
+ * @param string $deptId
+ * @param string $entry Log entry string
+ * @return bool
+ */
+function appendMasterLog($deptId, $entry) {
+    $logPath = STORAGE_PATH . '/departments/' . $deptId . '/logs/master_log.txt';
+    $dir = dirname($logPath);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    return file_put_contents($logPath, $entry . PHP_EOL, FILE_APPEND | LOCK_EX) !== false;
+}
+
+/**
+ * Moves a document to a new owner (Workflow).
+ *
+ * @param string $deptId
+ * @param string $docId
+ * @param string $targetUserId
+ * @param string $currentUserId (The user performing the action)
+ * @param string $newStatus (e.g., 'Pending Approval')
+ * @return array ['success' => bool, 'message' => string]
+ */
+function moveDocument($deptId, $docId, $targetUserId, $currentUserId, $newStatus = 'Pending Approval') {
+    // 1. Validate Target User
+    $users = getUsers($deptId);
+    if (!isset($users[$targetUserId])) {
+        return ['success' => false, 'message' => 'Target user does not exist.'];
+    }
+
+    // 2. Load Document
+    $doc = getDocument($deptId, $docId);
+    if (!$doc) {
+        return ['success' => false, 'message' => 'Document not found.'];
+    }
+
+    // 3. Update Document Data
+    $oldOwner = $doc['current_owner'];
+    $doc['current_owner'] = $targetUserId;
+    $doc['status'] = $newStatus;
+
+    // 4. Audit Log Layer A: Internal Document Log
+    $logEntry = [
+        'action' => 'moved',
+        'from' => $currentUserId, // Using current user (actor) instead of old owner, though often they are same.
+        'to' => $targetUserId,
+        'time' => date('Y-m-d H:i:s')
+    ];
+    $doc['history'][] = $logEntry;
+
+    // 5. Save Document
+    if (saveDocument($deptId, $docId, $doc)) {
+        // 6. Audit Log Layer B: Master Department Log
+        $timestamp = date('Y-m-d H:i:s');
+        $masterLogEntry = "[{$timestamp}] {$docId} moved from {$currentUserId} to {$targetUserId}. Status: {$newStatus}.";
+        appendMasterLog($deptId, $masterLogEntry);
+
+        return ['success' => true, 'message' => 'Document moved successfully.'];
+    }
+
+    return ['success' => false, 'message' => 'Failed to save document changes.'];
+}
+
+/**
+ * Gets all documents for a department.
+ * Helper function for filtering.
+ *
+ * @param string $deptId
+ * @return array Array of documents
+ */
+function getAllDocuments($deptId) {
+    $dir = STORAGE_PATH . '/departments/' . $deptId . '/documents';
+    if (!is_dir($dir)) {
+        return [];
+    }
+
+    $documents = [];
+    $files = scandir($dir);
+    foreach ($files as $file) {
+        if (strpos($file, '.json') !== false) {
+            $doc = readJSON('departments/' . $deptId . '/documents/' . $file);
+            if ($doc) {
+                $documents[] = $doc;
+            }
+        }
+    }
+    return $documents;
+}
+
+/**
+ * Get documents currently owned by the user (Inbox).
+ */
+function getInbox($deptId, $userId) {
+    $allDocs = getAllDocuments($deptId);
+    $inbox = [];
+    foreach ($allDocs as $doc) {
+        if (isset($doc['current_owner']) && $doc['current_owner'] === $userId) {
+            $inbox[] = $doc;
+        }
+    }
+    // Sort by created_at desc (optional)
+    usort($inbox, function($a, $b) {
+        return strcmp($b['created_at'], $a['created_at']);
+    });
+    return $inbox;
+}
+
+/**
+ * Get documents created by the user but NOT owned by them (Outbox).
+ */
+function getOutbox($deptId, $userId) {
+    $allDocs = getAllDocuments($deptId);
+    $outbox = [];
+    foreach ($allDocs as $doc) {
+        if (isset($doc['created_by']) && $doc['created_by'] === $userId) {
+            if (isset($doc['current_owner']) && $doc['current_owner'] !== $userId) {
+                $outbox[] = $doc;
+            }
+        }
+    }
+    // Sort by created_at desc
+    usort($outbox, function($a, $b) {
+        return strcmp($b['created_at'], $a['created_at']);
+    });
+    return $outbox;
+}
+
 ?>
