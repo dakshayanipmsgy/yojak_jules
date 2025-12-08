@@ -1,0 +1,11 @@
+{
+    "admin.Finance": {
+        "name": "Department Administrator",
+        "permissions": "all"
+    },
+    "OFFICER.Finance": {
+        "name": "Officer",
+        "permissions": [],
+        "status": "active"
+    }
+}
