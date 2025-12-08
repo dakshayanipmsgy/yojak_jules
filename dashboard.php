@@ -85,6 +85,32 @@ if ($isSuperadmin) {
     $outbox = getOutbox($deptId, $_SESSION['user_id']);
 }
 
+// Deadline System Sorting Logic
+if (!empty($inbox)) {
+    usort($inbox, function($a, $b) {
+        $today = date('Y-m-d');
+
+        $aDue = $a['due_date'] ?? '';
+        $bDue = $b['due_date'] ?? '';
+
+        $aExpired = (!empty($aDue) && $today > $aDue);
+        $bExpired = (!empty($bDue) && $today > $bDue);
+
+        $aUrgent = (!empty($aDue) && $today == $aDue);
+        $bUrgent = (!empty($bDue) && $today == $bDue);
+
+        // Priority 1: Expired
+        if ($aExpired && !$bExpired) return -1;
+        if (!$aExpired && $bExpired) return 1;
+
+        // Priority 2: Urgent
+        if ($aUrgent && !$bUrgent) return -1;
+        if (!$aUrgent && $bUrgent) return 1;
+
+        // Fallback: Created Date (Newest first)
+        return strcmp($b['created_at'], $a['created_at']);
+    });
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -206,9 +232,26 @@ if ($isSuperadmin) {
                                                         $receivedFrom = $lastEntry['from'];
                                                     }
                                                 }
+
+                                                // Deadline Logic
+                                                $rowClass = '';
+                                                $statusText = '';
+                                                $today = date('Y-m-d');
+                                                if (isset($doc['due_date']) && !empty($doc['due_date'])) {
+                                                    if ($today > $doc['due_date']) {
+                                                        $rowClass = 'expired';
+                                                        $statusText = '<br><span style="color:red; font-weight:bold;">OVERDUE</span>';
+                                                    } elseif ($today == $doc['due_date']) {
+                                                        $rowClass = 'urgent';
+                                                        $statusText = '<br><span style="color:orange; font-weight:bold;">DUE TODAY</span>';
+                                                    }
+                                                }
                                             ?>
-                                            <tr>
-                                                <td><?php echo htmlspecialchars($doc['title']); ?></td>
+                                            <tr class="<?php echo $rowClass; ?>">
+                                                <td>
+                                                    <?php echo htmlspecialchars($doc['title']); ?>
+                                                    <?php echo $statusText; ?>
+                                                </td>
                                                 <td><?php echo htmlspecialchars($receivedFrom); ?></td>
                                                 <td><?php echo htmlspecialchars($doc['created_at']); ?></td>
                                                 <td><a href="view_document.php?id=<?php echo $doc['id']; ?>" class="btn-small">Open</a></td>
@@ -278,6 +321,10 @@ if ($isSuperadmin) {
                                 <li>
                                     <strong>Templates</strong>
                                     <a href="manage_templates.php" class="btn-small">Manage</a>
+                                </li>
+                                <li>
+                                    <strong>Backup</strong>
+                                    <a href="backup.php" class="btn-small" style="background-color: #6610f2; border-color: #6610f2;">Download Data (.zip)</a>
                                 </li>
                             </ul>
                         </section>

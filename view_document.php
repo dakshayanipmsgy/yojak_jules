@@ -71,11 +71,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Move Document (Only Owner)
     if (isset($_POST['move_document']) && $isOwner) {
         $targetUserId = $_POST['target_user_id'] ?? '';
+        $dueDate = $_POST['due_date'] ?? null;
 
         if (empty($targetUserId)) {
             $error = "Please select a user to forward to.";
         } else {
-            $result = moveDocument($deptId, $docId, $targetUserId, $userId);
+            $result = moveDocument($deptId, $docId, $targetUserId, $userId, 'Pending Approval', $dueDate);
             if ($result['success']) {
                 $message = $result['message'];
                 // Reload doc
@@ -295,6 +296,10 @@ foreach ($deptUsers as $uid => $u) {
                             <option value="<?php echo $uid; ?>"><?php echo htmlspecialchars($u['full_name']); ?> (<?php echo htmlspecialchars($uid); ?>)</option>
                         <?php endforeach; ?>
                     </select>
+                    <div style="display:inline-block; margin-left: 0.5rem;">
+                        <label for="due_date" style="font-size: 0.85rem; font-weight: 600;">Due Date:</label>
+                        <input type="date" name="due_date" id="due_date" style="padding: 0.4rem;">
+                    </div>
                     <button type="submit" class="btn-primary">Send / Forward</button>
                 </form>
             </div>
