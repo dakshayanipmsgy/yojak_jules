@@ -191,7 +191,12 @@ function createDepartment($name, $id, $password, $adminUserId = null) {
     }
 
     // Create users/users.json
-    $userId = $adminUserId ? $adminUserId : ('user.admin.' . $id);
+    // Enforce Strict Naming for Department Admin: {custom_id}.admin.{dept_id}
+    if ($adminUserId) {
+        $userId = $adminUserId . '.admin.' . $id;
+    } else {
+        $userId = 'user.admin.' . $id;
+    }
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
     $users = [
         $userId => [

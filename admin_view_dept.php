@@ -21,8 +21,8 @@ $users = getUsers($deptId);
 $roles = getRoles($deptId);
 $adminRoleId = 'admin.' . $deptId;
 
-$message = '';
-$error = '';
+$message = $_GET['msg'] ?? '';
+$error = $_GET['error'] ?? '';
 
 // Handle Superadmin Actions on Users
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -170,6 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <td>
                                         <?php if ($isDeptAdmin): ?>
                                             <button type="submit" class="btn-small btn-primary">Update</button>
+                                            <button type="button" class="btn-small" style="background: #17a2b8; border-color: #17a2b8; color:white; margin-left:5px;" onclick="openResetModal('<?php echo $uid; ?>')">Reset Pass</button>
                                             </form>
                                         <?php else: ?>
                                             <span style="color: #999;">Read Only</span>
@@ -213,5 +214,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
     </div>
+
+    <!-- Reset Password Modal -->
+    <div id="resetPasswordModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeResetModal()">&times;</span>
+            <h2>Reset Password</h2>
+            <p>User: <span id="resetUserDisplay"></span></p>
+            <form method="POST" action="admin_reset_pass.php">
+                <input type="hidden" name="target_dept" value="<?php echo htmlspecialchars($deptId); ?>">
+                <input type="hidden" name="target_user" id="resetTargetUser">
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" name="new_password" required>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <input type="password" name="confirm_password" required>
+                </div>
+                <button type="submit" class="btn-primary">Reset Password</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    function openResetModal(userId) {
+        document.getElementById('resetTargetUser').value = userId;
+        document.getElementById('resetUserDisplay').textContent = userId;
+        document.getElementById('resetPasswordModal').style.display = 'block';
+    }
+    function closeResetModal() {
+        document.getElementById('resetPasswordModal').style.display = 'none';
+    }
+    // Close on outside click
+    window.onclick = function(event) {
+        var modal = document.getElementById('resetPasswordModal');
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+    </script>
 </body>
 </html>
