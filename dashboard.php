@@ -22,11 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $deptName = trim($_POST['dept_name'] ?? '');
         $newDeptId = trim($_POST['dept_id'] ?? '');
         $adminPassword = $_POST['admin_password'] ?? '';
+        $adminUserId = trim($_POST['admin_user_id'] ?? '');
 
         if (empty($deptName) || empty($newDeptId) || empty($adminPassword)) {
-            $error = "All fields are required.";
+            $error = "All fields except Admin User ID are required.";
         } else {
-            $result = createDepartment($deptName, $newDeptId, $adminPassword);
+            $result = createDepartment($deptName, $newDeptId, $adminPassword, $adminUserId ?: null);
             if ($result['success']) {
                 $message = $result['message'];
             } else {
@@ -42,21 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Role Name is required.";
             } else {
                 $result = createRole($deptId, $roleName);
-                if ($result['success']) {
-                    $message = $result['message'];
-                } else {
-                    $error = $result['message'];
-                }
-            }
-        } elseif ($action === 'create_user') {
-            $fullName = trim($_POST['full_name'] ?? '');
-            $password = $_POST['password'] ?? '';
-            $targetRoleId = $_POST['role_id'] ?? '';
-
-            if (empty($fullName) || empty($password) || empty($targetRoleId)) {
-                $error = "All fields are required.";
-            } else {
-                $result = createUser($deptId, $fullName, $password, $targetRoleId);
                 if ($result['success']) {
                     $message = $result['message'];
                 } else {
@@ -187,6 +173,11 @@ if (!empty($inbox)) {
                                 <label for="dept_id">Department ID (URL-friendly)</label>
                                 <input type="text" id="dept_id" name="dept_id" placeholder="e.g. road_dept" required pattern="[a-zA-Z0-9_]+">
                                 <small>Alphanumeric and underscores only.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="admin_user_id">Initial Admin User ID (Optional)</label>
+                                <input type="text" id="admin_user_id" name="admin_user_id" placeholder="e.g. admin_john">
+                                <small>Leave empty to auto-generate.</small>
                             </div>
                             <div class="form-group">
                                 <label for="admin_password">Initial Admin Password</label>
@@ -356,7 +347,10 @@ if (!empty($inbox)) {
                         <section class="card">
                             <div class="section-header">
                                 <h2>Manage Users</h2>
-                                <button id="showCreateUserBtn" class="btn-primary">Add User</button>
+                                <div>
+                                    <a href="create_user.php" class="btn-primary">Add User</a>
+                                    <a href="bulk_upload.php" class="btn-secondary" style="margin-left: 5px;">Bulk Import</a>
+                                </div>
                             </div>
 
                              <div class="table-responsive">
@@ -386,38 +380,6 @@ if (!empty($inbox)) {
                     <?php endif; ?>
                 </div>
 
-                <?php if ($isAdmin): ?>
-                <div id="createUserModal" class="modal">
-                    <div class="modal-content">
-                        <span class="close-btn" id="closeUserModal">&times;</span>
-                        <h2>Create New User</h2>
-                        <form method="POST" action="">
-                            <input type="hidden" name="action" value="create_user">
-                            <div class="form-group">
-                                <label for="full_name">Full Name</label>
-                                <input type="text" id="full_name" name="full_name" placeholder="e.g. John Doe" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="role_id">Role</label>
-                                <select id="role_id" name="role_id" required>
-                                    <option value="">Select Role</option>
-                                    <?php foreach ($deptRoles as $rId => $role): ?>
-                                        <option value="<?php echo htmlspecialchars($rId); ?>"><?php echo htmlspecialchars($role['name']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="user_password">Password</label>
-                                <input type="text" id="user_password" name="password" placeholder="Enter password" required>
-                            </div>
-                            <div class="form-actions">
-                                <button type="submit" class="btn-primary">Create User</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-                <?php endif; ?>
-
             <?php endif; ?>
 
         </main>
@@ -425,15 +387,6 @@ if (!empty($inbox)) {
 
     <script>
         // Modal Logic
-        function setupModal(modalId, btnId, closeClass) {
-            var modal = document.getElementById(modalId);
-            var btn = document.getElementById(btnId);
-            // closeClass logic requires iteration if class
-            if (modal && btn) {
-                btn.onclick = function() { modal.style.display = "block"; }
-            }
-        }
-
         // Superadmin Modal
         var saModal = document.getElementById("createDepartmentModal");
         var saBtn = document.getElementById("showCreateFormBtn");
@@ -441,23 +394,11 @@ if (!empty($inbox)) {
 
         if (saModal && saBtn) {
             saBtn.onclick = function() { saModal.style.display = "block"; }
-            // Assuming first close-btn is inside saModal if multiple exist, but here we separate
             if (saClose[0]) saClose[0].onclick = function() { saModal.style.display = "none"; }
-        }
-
-        // Dept Admin Modal
-        var daModal = document.getElementById("createUserModal");
-        var daBtn = document.getElementById("showCreateUserBtn");
-        var daClose = document.getElementById("closeUserModal");
-
-        if (daModal && daBtn) {
-            daBtn.onclick = function() { daModal.style.display = "block"; }
-            if (daClose) daClose.onclick = function() { daModal.style.display = "none"; }
         }
 
         window.onclick = function(event) {
             if (event.target == saModal) saModal.style.display = "none";
-            if (event.target == daModal) daModal.style.display = "none";
         }
     </script>
 </body>
