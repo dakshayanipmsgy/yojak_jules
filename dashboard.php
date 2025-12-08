@@ -140,6 +140,23 @@ if ($isSuperadmin) {
     $deptData = getDepartment($deptId);
     $deptRoles = getRoles($deptId);
     $deptUsers = getUsers($deptId);
+
+    // Verify User Existence & Status (Safety Check as requested)
+    // Key-based lookup using session user_id
+    if (!isset($deptUsers[$_SESSION['user_id']])) {
+        // Force logout if user no longer exists in JSON
+        session_destroy();
+        header("Location: index.php?msg=invalid_session");
+        exit;
+    }
+    $currentUser = $deptUsers[$_SESSION['user_id']];
+    if (isset($currentUser['status']) && $currentUser['status'] !== 'active') {
+        // Force logout if user is suspended/archived
+        session_destroy();
+        header("Location: index.php?msg=account_suspended");
+        exit;
+    }
+
     $inbox = getInbox($deptId, $_SESSION['user_id']);
     $outbox = getOutbox($deptId, $_SESSION['user_id']);
 }
