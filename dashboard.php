@@ -1,12 +1,6 @@
 <?php
-session_start();
+require_once 'auth_check.php';
 require_once 'functions.php';
-
-// Authentication Check
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
-    exit;
-}
 
 $isSuperadmin = (isset($_SESSION['role_id']) && $_SESSION['role_id'] === 'superadmin');
 $deptId = $_SESSION['dept_id'] ?? null;
@@ -103,16 +97,9 @@ if ($isSuperadmin) {
 </head>
 <body>
 
+    <?php include 'navbar.php'; ?>
+
     <div class="dashboard-container">
-        <header class="dashboard-header">
-            <div class="header-left">
-                <h1>Yojak <?php echo $isSuperadmin ? 'Superadmin' : ($deptData['name'] ?? 'Department'); ?></h1>
-            </div>
-            <div class="header-right">
-                <span>Welcome, <?php echo htmlspecialchars($_SESSION['user_id']); ?></span>
-                <a href="logout.php" class="logout-btn">Logout</a>
-            </div>
-        </header>
 
         <main class="dashboard-content">
             <?php if ($message): ?>
