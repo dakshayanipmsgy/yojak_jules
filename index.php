@@ -15,23 +15,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $userId = trim($_POST['user_id'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    $user = validateLogin($deptId, $userId, $password);
-
-    if ($user) {
-        $_SESSION['user_id'] = $user['user_id'];
-
-        if (isset($user['role']) && $user['role'] === 'superadmin') {
-            $_SESSION['role_id'] = 'superadmin'; // Standardizing key
-            $_SESSION['dept_id'] = null;
-        } else {
-            $_SESSION['role_id'] = $user['role_id'];
-            $_SESSION['dept_id'] = $user['dept_id'];
+    // Superadmin Login Check
+    if ($userId === 'admin' && empty($deptId)) {
+        $config = readJSON('system/global_config.json');
+        if ($config && isset($config['username']) && $config['username'] === 'admin') {
+            if (password_verify($password, $config['password_hash'])) {
+                $_SESSION['user_id'] = 'admin';
+                $_SESSION['role_id'] = 'superadmin';
+                $_SESSION['dept_id'] = null;
+                header('Location: dashboard.php');
+                exit;
+            } else {
+                die("Error: Incorrect Password.");
+            }
         }
+        die("Error: Superadmin configuration missing.");
+    }
+
+    // Department User Login Logic
+
+    // Step A: Check Department
+    if (empty($deptId)) {
+        die("Error: Department ID is required.");
+    }
+
+    // Sanitize Dept ID to prevent traversal
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $deptId)) {
+        die("Error: Invalid Department ID format.");
+    }
+
+    $deptPath = STORAGE_PATH . '/departments/' . $deptId;
+    if (!is_dir($deptPath)) {
+        die("Error: Department '$deptId' not found.");
+    }
+
+    // Step B: Load User Data
+    $userFile = $deptPath . '/users/users.json';
+    if (!file_exists($userFile)) {
+        die("Error: User database missing for this department.");
+    }
+
+    // Step C: Find the User (Key-based lookup)
+    $jsonContent = file_get_contents($userFile);
+    $users_array = json_decode($jsonContent, true);
+
+    if ($users_array === null) {
+        die("Error: User database is corrupt.");
+    }
+
+    if (!isset($users_array[$userId])) {
+        // User ID does not exist as a key
+        die("Error: User ID '$userId' not found in department '$deptId'.");
+    }
+    $user_data = $users_array[$userId];
+
+    // Step D: Check Status
+    if (isset($user_data['status']) && $user_data['status'] !== 'active') {
+        die("Error: This account is " . $user_data['status']);
+    }
+
+    // Step E: Verify Password
+    if (password_verify($password, $user_data['password'])) {
+        // Success: Start Session, set variables
+        $_SESSION['user_id'] = $userId;
+        $_SESSION['dept_id'] = $deptId;
+        $_SESSION['role_id'] = $user_data['role'];
 
         header('Location: dashboard.php');
         exit;
     } else {
-        $error = "Invalid credentials or Department ID.";
+        die("Error: Incorrect Password.");
     }
 }
 
