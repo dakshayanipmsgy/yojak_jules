@@ -19,9 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (validateLogin($userId, $password)) {
             $_SESSION['user_id'] = $userId;
             $_SESSION['role'] = 'superadmin';
-            // Redirect to dashboard (to be created later, for now just reload or show success)
-            // header('Location: dashboard.php');
-            // Since dashboard doesn't exist, we'll just show a logged in message.
+            header('Location: dashboard.php');
+            exit;
         } else {
             $error = "Invalid credentials.";
         }
@@ -32,26 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// If logged in
-if (isset($_SESSION['user_id'])) {
-    ?>
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Yojak - Dashboard</title>
-        <link rel="stylesheet" href="style.css">
-    </head>
-    <body>
-        <div class="login-container">
-            <h1>Welcome, <?php echo htmlspecialchars($_SESSION['user_id']); ?></h1>
-            <p>You are logged in.</p>
-            <a href="logout.php" style="color: var(--primary-color);">Logout</a>
-        </div>
-    </body>
-    </html>
-    <?php
+// If logged in as superadmin, redirect to dashboard
+if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'superadmin') {
+    header('Location: dashboard.php');
     exit;
 }
 
@@ -65,7 +47,7 @@ if (isset($_SESSION['user_id'])) {
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="login-page">
 
     <div class="login-container">
         <div class="logo-placeholder">Y</div>
