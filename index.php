@@ -4,39 +4,36 @@ require_once 'functions.php';
 
 $error = '';
 
+// If logged in, redirect to dashboard
+if (isset($_SESSION['user_id'])) {
+    header('Location: dashboard.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $deptId = trim($_POST['dept_id'] ?? '');
     $userId = trim($_POST['user_id'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    // For Superadmin, we might assume a specific Dept ID or handle it specially.
-    // The prompt says: initialize global_config.json with Superadmin user (User: admin, Pass: pass123).
-    // It doesn't specify a Dept ID for superadmin, but the login form requires it.
-    // I will assume "system" or empty dept ID for superadmin, or maybe the "User ID" 'admin' is unique enough.
-    // Let's implement a simple check: if user is 'admin', check against global config.
+    $user = validateLogin($deptId, $userId, $password);
 
-    if ($userId === 'admin') {
-        if (validateLogin($userId, $password)) {
-            $_SESSION['user_id'] = $userId;
-            $_SESSION['role'] = 'superadmin';
-            header('Location: dashboard.php');
-            exit;
+    if ($user) {
+        $_SESSION['user_id'] = $user['user_id'];
+
+        if (isset($user['role']) && $user['role'] === 'superadmin') {
+            $_SESSION['role_id'] = 'superadmin'; // Standardizing key
+            $_SESSION['dept_id'] = null;
         } else {
-            $error = "Invalid credentials.";
+            $_SESSION['role_id'] = $user['role_id'];
+            $_SESSION['dept_id'] = $user['dept_id'];
         }
+
+        header('Location: dashboard.php');
+        exit;
     } else {
-        // Here we would check department users
-        // For now, only superadmin exists.
-        $error = "Department login not yet implemented.";
+        $error = "Invalid credentials or Department ID.";
     }
 }
-
-// If logged in as superadmin, redirect to dashboard
-if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'superadmin') {
-    header('Location: dashboard.php');
-    exit;
-}
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -60,7 +57,7 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'superadmin') {
         <form method="POST" action="">
             <div class="form-group">
                 <label for="dept_id">Department ID</label>
-                <input type="text" id="dept_id" name="dept_id" placeholder="Enter Department ID">
+                <input type="text" id="dept_id" name="dept_id" placeholder="Enter Department ID (Leave empty for Superadmin)">
             </div>
 
             <div class="form-group">
