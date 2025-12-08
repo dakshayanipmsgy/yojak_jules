@@ -34,6 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Invalid credentials or Department ID.";
     }
 }
+
+$logoutMsg = '';
+if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
+    $logoutMsg = "You have successfully logged out.";
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -49,6 +54,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="login-container">
         <div class="logo-placeholder">Y</div>
         <h1>Yojak</h1>
+
+        <?php if ($logoutMsg): ?>
+            <div class="success-message"><?php echo htmlspecialchars($logoutMsg); ?></div>
+        <?php endif; ?>
 
         <?php if ($error): ?>
             <div class="error-message"><?php echo htmlspecialchars($error); ?></div>

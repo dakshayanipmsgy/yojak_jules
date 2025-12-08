@@ -1,12 +1,6 @@
 <?php
-session_start();
+require_once 'auth_check.php';
 require_once 'functions.php';
-
-// Authentication Check
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['dept_id'])) {
-    header('Location: index.php');
-    exit;
-}
 
 $deptId = $_SESSION['dept_id'];
 $roleId = $_SESSION['role_id'];
@@ -92,12 +86,12 @@ if (isset($_GET['edit'])) {
     </style>
 </head>
 <body>
+
+    <?php include 'navbar.php'; ?>
+
     <div class="dashboard-header">
         <div class="header-left">
             <h1>Manage Contractors</h1>
-        </div>
-        <div class="header-right">
-            <a href="dashboard.php" class="back-btn">Back to Dashboard</a>
         </div>
     </div>
 

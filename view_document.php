@@ -1,12 +1,6 @@
 <?php
-session_start();
+require_once 'auth_check.php';
 require_once 'functions.php';
-
-// Authentication Check
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['dept_id'])) {
-    header('Location: index.php');
-    exit;
-}
 
 $deptId = $_SESSION['dept_id'];
 $userId = $_SESSION['user_id'];
@@ -139,13 +133,14 @@ foreach ($deptUsers as $uid => $u) {
     </style>
 </head>
 <body>
+    <div class="no-print">
+        <?php include 'navbar.php'; ?>
+    </div>
+
     <div class="dashboard-header no-print">
         <div class="header-left">
             <h1><?php echo htmlspecialchars($doc['title']); ?></h1>
             <span class="status-badge"><?php echo htmlspecialchars($doc['status']); ?></span>
-        </div>
-        <div class="header-right">
-            <a href="dashboard.php" class="back-btn">Back to Dashboard</a>
         </div>
     </div>
 
