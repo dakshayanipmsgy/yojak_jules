@@ -1,0 +1,11 @@
+{
+    "admin.DWS": {
+        "name": "Department Administrator",
+        "permissions": "all"
+    },
+    "CLERK.DWS": {
+        "name": "Clerk",
+        "permissions": [],
+        "status": "active"
+    }
+}

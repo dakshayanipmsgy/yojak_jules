@@ -53,14 +53,93 @@ if (!$isSuperadmin && $deptId) {
     </div>
 
     <div class="navbar-right">
+        <!-- Notification Bell -->
+        <?php
+        $unreadCount = 0;
+        $myNotifications = [];
+        if ($deptId && $userId) {
+            $notifPath = 'departments/' . $deptId . '/data/notifications.json';
+            $allNotifs = readJSON($notifPath) ?? [];
+            foreach ($allNotifs as $n) {
+                if (isset($n['user_id']) && $n['user_id'] === $userId && empty($n['read'])) {
+                    $myNotifications[] = $n;
+                    $unreadCount++;
+                }
+            }
+            // Sort by time desc
+            usort($myNotifications, function($a, $b) {
+                return strcmp($b['time'], $a['time']);
+            });
+        }
+        ?>
+        <div class="notification-wrapper" onclick="toggleNotifications()">
+            <span class="bell-icon">🔔</span>
+            <?php if ($unreadCount > 0): ?>
+                <span class="badge"><?php echo $unreadCount; ?></span>
+            <?php endif; ?>
+
+            <div id="notification-dropdown" class="notification-dropdown">
+                <?php if (empty($myNotifications)): ?>
+                    <div class="notif-item">No new notifications</div>
+                <?php else: ?>
+                    <?php foreach ($myNotifications as $notif): ?>
+                        <div class="notif-item" onclick="markRead('<?php echo $notif['id'] ?? ''; ?>', '<?php echo $notif['link'] ?? '#'; ?>', event)">
+                            <p><?php echo htmlspecialchars($notif['message']); ?></p>
+                            <span class="notif-time"><?php echo htmlspecialchars($notif['time']); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+
         <span class="user-greeting">Welcome, <?php echo htmlspecialchars($userId); ?></span>
         <a href="profile.php" class="profile-link">My Profile</a>
         <a href="logout.php" class="logout-btn">Logout</a>
     </div>
 </nav>
 
+<script>
+function toggleNotifications() {
+    var dropdown = document.getElementById('notification-dropdown');
+    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+}
+
+function markRead(id, link, event) {
+    event.stopPropagation(); // Prevent closing dropdown immediately if we want to keep it open, but we usually want to navigate.
+
+    // Call API to mark as read
+    if (id) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "notifications_handler.php", true);
+        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+        xhr.onreadystatechange = function() {
+            if (this.readyState === 4 && this.status === 200) {
+                if (link && link !== '#') {
+                    window.location.href = link;
+                } else {
+                    location.reload(); // Reload to update badge
+                }
+            }
+        };
+        xhr.send("action=mark_read&id=" + id);
+    } else if (link && link !== '#') {
+        window.location.href = link;
+    }
+}
+
+// Close dropdown when clicking outside
+window.onclick = function(event) {
+    if (!event.target.matches('.bell-icon') && !event.target.matches('.badge') && !event.target.closest('.notification-wrapper')) {
+        var dropdown = document.getElementById('notification-dropdown');
+        if (dropdown && dropdown.style.display === 'block') {
+            dropdown.style.display = 'none';
+        }
+    }
+}
+</script>
+
 <style>
-    /* Basic Navbar Styling - Inline for simplicity or moved to style.css */
+    /* Basic Navbar Styling */
     .navbar {
         background-color: #333;
         color: white;
@@ -69,6 +148,8 @@ if (!$isSuperadmin && $deptId) {
         align-items: center;
         padding: 10px 20px;
         margin-bottom: 20px;
+        position: relative;
+        z-index: 1000;
     }
     .navbar a {
         color: white;
@@ -99,5 +180,56 @@ if (!$isSuperadmin && $deptId) {
     }
     .user-greeting {
         margin-right: 15px;
+    }
+
+    /* Notification Styles */
+    .notification-wrapper {
+        position: relative;
+        margin-right: 20px;
+        cursor: pointer;
+    }
+    .bell-icon {
+        font-size: 1.2rem;
+    }
+    .badge {
+        position: absolute;
+        top: -5px;
+        right: -10px;
+        background-color: red;
+        color: white;
+        border-radius: 50%;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+    }
+    .notification-dropdown {
+        display: none;
+        position: absolute;
+        top: 30px;
+        right: 0;
+        background-color: white;
+        color: black;
+        width: 300px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-radius: 4px;
+        max-height: 400px;
+        overflow-y: auto;
+        z-index: 1001;
+        border: 1px solid #ddd;
+    }
+    .notif-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+    }
+    .notif-item:hover {
+        background-color: #f5f5f5;
+    }
+    .notif-item p {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+    .notif-time {
+        font-size: 0.75rem;
+        color: #888;
     }
 </style>

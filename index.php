@@ -11,8 +11,8 @@ if (isset($_SESSION['user_id'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $deptId = trim($_POST['dept_id'] ?? '');
-    $userId = trim($_POST['user_id'] ?? '');
+    $deptId = $_POST['dept_id'] ?? '';
+    $userId = $_POST['user_id'] ?? '';
     $password = $_POST['password'] ?? '';
 
     // Superadmin Login Check

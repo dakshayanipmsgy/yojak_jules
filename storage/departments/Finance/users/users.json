@@ -1,0 +1,14 @@
+{
+    "finance.admin.admin.Finance": {
+        "password": "$2y$10$Kwjdv6jheTd4EgyeQewOQ.ge6VMTBKlCXXb76mHQ0qANpb.V8Wg9G",
+        "role": "admin.Finance",
+        "full_name": "Administrator",
+        "status": "active"
+    },
+    "jane.finance": {
+        "full_name": "Jane Finance",
+        "password": "$2y$10$SDSNaE03d8vynlTRPQz1HeStkSWPelhoySPl\/V\/UhlQaolyVUccdi",
+        "role": "OFFICER.Finance",
+        "status": "active"
+    }
+}

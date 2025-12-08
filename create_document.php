@@ -11,10 +11,20 @@ $generatedHtml = '';
 $contractors = readJSON('departments/' . $deptId . '/data/contractors.json') ?? [];
 $localTemplates = readJSON('departments/' . $deptId . '/templates/templates.json') ?? [];
 $systemTemplates = readJSON('system/templates/templates.json') ?? [];
+$deptUsers = getUsers($deptId);
 
 // Merge Templates
 // We mark system templates with [Global] tag in UI
 $templates = [];
+
+// Hardcoded "Blank" Template
+$templates['blank'] = [
+    'id' => 'blank',
+    'title' => 'Create Blank Document',
+    'display_title' => 'Create Blank Document',
+    'is_global' => false,
+    'filename' => ''
+];
 
 // System first
 foreach ($systemTemplates as $t) {
@@ -45,64 +55,111 @@ if ($editDocId) {
 // Handle Generation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     $templateId = $_POST['template_id'] ?? '';
-    $contractorId = $_POST['contractor_id'] ?? '';
+    $recipientMode = $_POST['recipient_mode'] ?? 'contractor';
 
-    // Dak Integration
-    $dakRef = $_GET['dak_ref'] ? htmlspecialchars($_GET['dak_ref']) : '';
-    $dakSubject = $_GET['subject'] ? htmlspecialchars($_GET['subject']) : '';
-    $dakSender = $_GET['sender'] ? htmlspecialchars($_GET['sender']) : '';
+    // Resolve Recipient Info
+    $recipientName = '';
+    $recipientAddress = '';
 
-    if (empty($templateId) || empty($contractorId)) {
-        $error = "Please select both a template and a contractor.";
+    // Validation
+    $validSelection = false;
+
+    if ($recipientMode === 'contractor') {
+        $contractorId = $_POST['contractor_id'] ?? '';
+        if (isset($contractors[$contractorId])) {
+            $c = $contractors[$contractorId];
+            $recipientName = $c['name'];
+            $recipientAddress = $c['address'];
+            $validSelection = true;
+        }
+    } elseif ($recipientMode === 'internal') {
+        $userId = $_POST['internal_user_id'] ?? '';
+        if (isset($deptUsers[$userId])) {
+            $u = $deptUsers[$userId];
+            $recipientName = $u['full_name'];
+            $recipientAddress = 'Department: ' . $deptId; // Internal address
+            $validSelection = true;
+        }
+    } elseif ($recipientMode === 'ext_dept') {
+        $extDeptId = $_POST['ext_dept_id'] ?? '';
+        $extUserId = $_POST['ext_user_id'] ?? '';
+
+        // We need to fetch the user name from that dept
+        if ($extDeptId && $extUserId) {
+            $extUsers = readJSON('departments/' . $extDeptId . '/users/users.json');
+            if (isset($extUsers[$extUserId])) {
+                $recipientName = $extUsers[$extUserId]['full_name'];
+                $deptInfo = getDepartment($extDeptId);
+                $recipientAddress = $deptInfo['name'] . ' (' . $extDeptId . ')';
+                $validSelection = true;
+            }
+        }
+    } elseif ($recipientMode === 'manual') {
+        $recipientName = trim($_POST['manual_name'] ?? '');
+        $recipientAddress = trim($_POST['manual_address'] ?? '');
+        $designation = trim($_POST['manual_designation'] ?? '');
+        if ($recipientName) {
+            $recipientName .= $designation ? " ($designation)" : '';
+            $validSelection = true;
+        }
+    }
+
+    if (empty($templateId) || !$validSelection) {
+        $error = "Please select a template and valid recipient.";
     } else {
-        if (!isset($templates[$templateId]) || !isset($contractors[$contractorId])) {
-            $error = "Invalid selection.";
+        if (!isset($templates[$templateId])) {
+            $error = "Invalid template selection.";
         } else {
             $templateData = $templates[$templateId];
-            $contractorData = $contractors[$contractorId];
 
             // Load Template Content
-            $templatePath = '';
-            if (isset($templateData['is_global']) && $templateData['is_global']) {
-                $templatePath = STORAGE_PATH . '/system/templates/' . $templateData['filename'];
+            $content = '';
+            if ($templateId === 'blank') {
+                $content = '<html><body><p>Type your content here...</p></body></html>';
             } else {
-                $templatePath = STORAGE_PATH . '/departments/' . $deptId . '/templates/' . $templateData['filename'];
+                $templatePath = '';
+                if (isset($templateData['is_global']) && $templateData['is_global']) {
+                    $templatePath = STORAGE_PATH . '/system/templates/' . $templateData['filename'];
+                } else {
+                    $templatePath = STORAGE_PATH . '/departments/' . $deptId . '/templates/' . $templateData['filename'];
+                }
+
+                if (file_exists($templatePath)) {
+                    $content = file_get_contents($templatePath);
+                } else {
+                    $error = "Template file not found.";
+                }
             }
 
-            if (file_exists($templatePath)) {
-                $content = file_get_contents($templatePath);
-
+            if (!$error) {
                 // Replacements
                 $replacements = [
-                    '{{contractor_name}}' => $contractorData['name'],
-                    '{{contractor_address}}' => $contractorData['address'],
+                    '{{recipient_name}}' => $recipientName,
+                    '{{recipient_address}}' => $recipientAddress,
+                    '{{contractor_name}}' => $recipientName, // Backward compat
+                    '{{contractor_address}}' => $recipientAddress, // Backward compat
                     '{{current_date}}' => date('d-m-Y')
                 ];
-                // Add more fields just in case
-                $replacements['{{mobile}}'] = $contractorData['mobile'];
-                $replacements['{{pan}}'] = $contractorData['pan'];
-                $replacements['{{gst}}'] = $contractorData['gst'];
 
-                // Department name replacement?
-                // The prompt example used {{department_name}}.
-                // Let's get department name.
+                // Department name replacement
                 $deptMeta = getDepartment($deptId);
                 $replacements['{{department_name}}'] = $deptMeta['name'] ?? 'Department';
 
                 // Add Dak info if present
+                $dakRef = $_GET['dak_ref'] ?? '';
+                $dakSender = $_GET['sender'] ?? '';
+                $dakSubject = $_GET['subject'] ?? '';
+
                 if ($dakRef) {
-                    $replacements['{{dak_ref}}'] = $dakRef;
-                    $replacements['{{dak_sender}}'] = $dakSender;
-                    $replacements['{{dak_subject}}'] = $dakSubject;
+                    $replacements['{{dak_ref}}'] = htmlspecialchars($dakRef);
+                    $replacements['{{dak_sender}}'] = htmlspecialchars($dakSender);
+                    $replacements['{{dak_subject}}'] = htmlspecialchars($dakSubject);
                 }
 
                 $generatedHtml = str_replace(array_keys($replacements), array_values($replacements), $content);
 
                 // Keep the titles to pass to save logic
-                $documentTitle = ($dakRef ? "[$dakRef] " : "") . $templateData['title'] . ' - ' . $contractorData['name'];
-
-            } else {
-                $error = "Template file not found.";
+                $documentTitle = ($dakRef ? "[$dakRef] " : "") . $templateData['title'] . ' - ' . $recipientName;
             }
         }
     }
@@ -113,7 +170,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
     $title = $_POST['title'] ?? 'Untitled Document';
     $htmlContent = $_POST['html_content'] ?? '';
     $templateIdSaved = $_POST['template_id'] ?? '';
-    $contractorIdSaved = $_POST['contractor_id'] ?? '';
     $existingDocId = $_POST['existing_doc_id'] ?? '';
 
     if (empty($htmlContent)) {
@@ -132,8 +188,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
             $docData['title'] = $title;
             $docData['content'] = $htmlContent;
             $docData['template_id'] = $templateIdSaved;
-            $docData['contractor_id'] = $contractorIdSaved;
-            // Don't change created_by, created_at, or status (assumed still Draft if we are here)
 
             $docData['history'][] = [
                 'action' => 'updated',
@@ -154,8 +208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                 'current_owner' => $userId,
                 'status' => 'Draft',
                 'history' => [],
-                'template_id' => $templateIdSaved,
-                'contractor_id' => $contractorIdSaved
+                'template_id' => $templateIdSaved
             ];
 
             // Initial Log
@@ -209,6 +262,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
             margin: 20px auto;
             border: 1px solid #ccc;
         }
+
+        .mode-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .mode-selector label {
+            cursor: pointer;
+            font-weight: normal;
+        }
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -237,10 +303,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                 <?php endif; ?>
 
                 <div class="form-group">
+                    <label>Recipient Mode</label>
+                    <div class="mode-selector">
+                        <label><input type="radio" name="recipient_mode" value="contractor" checked onclick="toggleMode()"> Contractor</label>
+                        <label><input type="radio" name="recipient_mode" value="internal" onclick="toggleMode()"> Internal Staff</label>
+                        <label><input type="radio" name="recipient_mode" value="ext_dept" onclick="toggleMode()"> External Dept</label>
+                        <label><input type="radio" name="recipient_mode" value="manual" onclick="toggleMode()"> Manual / Open</label>
+                    </div>
+                </div>
+
+                <!-- Recipient Containers -->
+                <div id="container_contractor" class="mode-container">
+                    <div class="form-group">
+                        <label>Select Contractor</label>
+                        <select name="contractor_id">
+                            <option value="">-- Choose Contractor --</option>
+                            <?php foreach ($contractors as $c): ?>
+                                <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?> (<?php echo htmlspecialchars($c['mobile']); ?>)</option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="container_internal" class="mode-container hidden">
+                    <div class="form-group">
+                        <label>Select Internal Staff</label>
+                        <select name="internal_user_id">
+                            <option value="">-- Choose Staff --</option>
+                            <?php foreach ($deptUsers as $uid => $u): ?>
+                                <option value="<?php echo $uid; ?>"><?php echo htmlspecialchars($u['full_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="container_ext_dept" class="mode-container hidden">
+                    <div class="form-group">
+                        <label>Select Department</label>
+                        <select name="ext_dept_id" id="ext_dept_id" onchange="fetchRoles()">
+                            <option value="">-- Choose Department --</option>
+                            <?php
+                            $allDepts = getAllDepartments();
+                            foreach ($allDepts as $d) {
+                                if ($d['id'] === $deptId) continue;
+                                echo '<option value="' . $d['id'] . '">' . htmlspecialchars($d['name']) . '</option>';
+                            }
+                            ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Select Role</label>
+                        <select name="ext_role_id" id="ext_role_id" disabled onchange="fetchUsers()">
+                            <option value="">-- First Select Dept --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Select User</label>
+                        <select name="ext_user_id" id="ext_user_id" disabled>
+                            <option value="">-- First Select Role --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="container_manual" class="mode-container hidden">
+                    <div class="form-group">
+                        <label>Recipient Name</label>
+                        <input type="text" name="manual_name" placeholder="Name">
+                    </div>
+                    <div class="form-group">
+                        <label>Designation (Optional)</label>
+                        <input type="text" name="manual_designation" placeholder="e.g. Director">
+                    </div>
+                    <div class="form-group">
+                        <label>Address</label>
+                        <textarea name="manual_address" rows="3" placeholder="Full Address"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label>Select Template</label>
                     <select name="template_id" required>
                         <option value="">-- Choose Template --</option>
+                        <option value="blank" style="font-weight:bold;">Create Blank Document</option>
                         <?php foreach ($templates as $t): ?>
+                            <?php if ($t['id'] === 'blank') continue; ?>
                             <?php
                                 $selected = '';
                                 if (isset($_POST['template_id']) && $_POST['template_id'] == $t['id']) $selected = 'selected';
@@ -252,30 +398,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                 </div>
 
                 <div class="form-group">
-                    <label>Select Contractor</label>
-                    <select name="contractor_id" required>
-                        <option value="">-- Choose Contractor --</option>
-                        <?php foreach ($contractors as $c): ?>
-                            <?php
-                                $selected = '';
-                                if (isset($_POST['contractor_id']) && $_POST['contractor_id'] == $c['id']) $selected = 'selected';
-                                elseif ($editDoc && isset($editDoc['contractor_id']) && $editDoc['contractor_id'] == $c['id']) $selected = 'selected';
-                            ?>
-                            <option value="<?php echo $c['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($c['name']); ?> (<?php echo htmlspecialchars($c['mobile']); ?>)</option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="form-group">
                     <label>
                         <input type="checkbox" name="include_header" value="1" <?php if(isset($_POST['include_header'])) echo 'checked'; ?>>
                         Include Official Header?
                     </label>
-                </div>
-
-                <div class="form-group">
-                     <!-- Page Size Selector is handled by CSS class, defaulting to A4 for now. Could add a dropdown later if needed to switch class. -->
-                     <small>Default Page Size: A4 (210mm x 297mm)</small>
                 </div>
 
                 <div class="form-actions">
@@ -292,7 +418,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                 <input type="hidden" name="html_content" value="<?php echo htmlspecialchars($generatedHtml); ?>">
                 <input type="hidden" name="title" value="<?php echo htmlspecialchars($documentTitle ?? 'New Document'); ?>">
                 <input type="hidden" name="template_id" value="<?php echo htmlspecialchars($templateId); ?>">
-                <input type="hidden" name="contractor_id" value="<?php echo htmlspecialchars($contractorId); ?>">
                 <?php if ($editDocId): ?>
                     <input type="hidden" name="existing_doc_id" value="<?php echo htmlspecialchars($editDocId); ?>">
                 <?php endif; ?>
@@ -330,5 +455,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
         </div>
     <?php endif; ?>
 
+    <script>
+    function toggleMode() {
+        var modes = ['contractor', 'internal', 'ext_dept', 'manual'];
+        var selected = document.querySelector('input[name="recipient_mode"]:checked').value;
+
+        modes.forEach(function(m) {
+            var el = document.getElementById('container_' + m);
+            if (m === selected) {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        });
+    }
+
+    // AJAX for External Dept Flow
+    function fetchRoles() {
+        var deptId = document.getElementById('ext_dept_id').value;
+        var roleSelect = document.getElementById('ext_role_id');
+        var userSelect = document.getElementById('ext_user_id');
+
+        roleSelect.innerHTML = '<option value="">Loading...</option>';
+        roleSelect.disabled = true;
+        userSelect.innerHTML = '<option value="">-- First Select Role --</option>';
+        userSelect.disabled = true;
+
+        if (deptId) {
+            fetch('ajax_get_data.php?action=get_roles&dept_id=' + deptId)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    roleSelect.innerHTML = '<option value="">-- Select Role --</option>';
+                    data.data.forEach(role => {
+                        var opt = document.createElement('option');
+                        opt.value = role.id;
+                        opt.textContent = role.name;
+                        roleSelect.appendChild(opt);
+                    });
+                    roleSelect.disabled = false;
+                }
+            });
+        } else {
+            roleSelect.innerHTML = '<option value="">-- First Select Dept --</option>';
+        }
+    }
+
+    function fetchUsers() {
+        var deptId = document.getElementById('ext_dept_id').value;
+        var roleId = document.getElementById('ext_role_id').value;
+        var userSelect = document.getElementById('ext_user_id');
+
+        userSelect.innerHTML = '<option value="">Loading...</option>';
+        userSelect.disabled = true;
+
+        if (deptId && roleId) {
+            fetch('ajax_get_data.php?action=get_users&dept_id=' + deptId + '&role_id=' + roleId)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    userSelect.innerHTML = '<option value="">-- Select User --</option>';
+                    data.data.forEach(user => {
+                        var opt = document.createElement('option');
+                        opt.value = user.id;
+                        opt.textContent = user.full_name;
+                        userSelect.appendChild(opt);
+                    });
+                    userSelect.disabled = false;
+                }
+            });
+        } else {
+            userSelect.innerHTML = '<option value="">-- First Select Role --</option>';
+        }
+    }
+    </script>
 </body>
 </html>

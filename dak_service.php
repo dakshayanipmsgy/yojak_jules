@@ -27,7 +27,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sender = trim($_POST['sender'] ?? '');
         $subject = trim($_POST['subject'] ?? '');
         $mode = $_POST['mode'] ?? '';
+
+        // Incoming
         $assignedTo = $_POST['assigned_to'] ?? '';
+
+        // Outgoing Target Logic
+        $targetType = $_POST['target_type'] ?? ''; // internal, ext_dept, ext_other
+        $targetUser = $_POST['target_user'] ?? '';
+        $targetDept = $_POST['target_dept'] ?? '';
 
         if (empty($type) || empty($sender) || empty($subject) || empty($mode)) {
             $error = "All fields are required.";
@@ -44,6 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'subject' => $subject,
                 'mode' => $mode,
                 'assigned_to' => $assignedTo, // For Incoming
+                'target_type' => $targetType, // For Outgoing
+                'target_dept' => $targetDept,
+                'target_user' => $targetUser,
                 'received_date' => date('Y-m-d H:i:s'),
                 'created_by' => $userId,
                 'status' => 'logged'
@@ -52,6 +62,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dakRegister[] = $entry;
             if (writeJSON($dakPath, $dakRegister)) {
                 $message = "Dak entry created: " . $refNo;
+
+                // NOTIFICATIONS LOGIC
+                // Structure: [ { "id": "...", "user_id": "...", "message": "New Dak Received", "link": "...", "read": false, "time": "..." } ]
+
+                $notifData = [
+                    'id' => generateID('NOTIF'),
+                    'message' => "Dak Received: $refNo - $subject",
+                    'link' => 'dak_service.php', // Or view specific dak
+                    'read' => false,
+                    'time' => date('Y-m-d H:i:s')
+                ];
+
+                $notifTargets = [];
+
+                if ($type === 'incoming' && !empty($assignedTo)) {
+                    // Notify Local User
+                    $notifTargets[] = ['dept' => $deptId, 'user' => $assignedTo];
+                } elseif ($type === 'outgoing') {
+                    if ($targetType === 'internal' && !empty($targetUser)) {
+                        // Notify Local User
+                        $notifTargets[] = ['dept' => $deptId, 'user' => $targetUser];
+                    } elseif ($targetType === 'ext_dept' && !empty($targetDept)) {
+                        // Notify External Dept Admin
+                        // We need to find the admin user for that dept.
+                        // Usually user.admin.{dept} or similar.
+                        // We'll read the users file of that dept.
+                        $targetUsersPath = 'departments/' . $targetDept . '/users/users.json';
+                        $targetUsersList = readJSON($targetUsersPath);
+                        if ($targetUsersList) {
+                            foreach ($targetUsersList as $uid => $uData) {
+                                if (isset($uData['role']) && $uData['role'] === 'admin.' . $targetDept) {
+                                    $notifTargets[] = ['dept' => $targetDept, 'user' => $uid];
+                                    break; // Notify admin
+                                }
+                            }
+                        }
+                    }
+                }
+
+                foreach ($notifTargets as $target) {
+                    $nDept = $target['dept'];
+                    $nUser = $target['user'];
+
+                    $nPath = 'departments/' . $nDept . '/data/notifications.json';
+                    $nList = readJSON($nPath) ?? [];
+
+                    $thisNotif = $notifData;
+                    $thisNotif['user_id'] = $nUser;
+                    $nList[] = $thisNotif;
+
+                    writeJSON($nPath, $nList);
+                }
+
             } else {
                 $error = "Failed to save Dak entry.";
             }
@@ -80,6 +143,7 @@ usort($outgoingDak, function($a, $b) { return strcmp($b['received_date'], $a['re
         .dak-tab.active { background: #0056b3; color: white; }
         .dak-content { display: none; }
         .dak-content.active { display: block; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -106,14 +170,15 @@ usort($outgoingDak, function($a, $b) { return strcmp($b['received_date'], $a['re
 
                     <div class="form-group">
                         <label>Type</label>
-                        <select name="type" required>
+                        <select name="type" id="dak_type" onchange="toggleDakFields()" required>
                             <option value="incoming">Incoming (Received)</option>
                             <option value="outgoing">Outgoing (Sent)</option>
                         </select>
                     </div>
 
+                    <!-- Common Fields -->
                     <div class="form-group">
-                        <label>Sender / Ministry / Recipient</label>
+                        <label>Sender / Recipient Name (Display)</label>
                         <input type="text" name="sender" required placeholder="Who sent this or who is it for?">
                     </div>
 
@@ -132,14 +197,49 @@ usort($outgoingDak, function($a, $b) { return strcmp($b['received_date'], $a['re
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label>Assigned To (For Incoming)</label>
+                    <!-- Incoming Specific -->
+                    <div class="form-group" id="incoming_fields">
+                        <label>Assigned To (Internal User)</label>
                         <select name="assigned_to">
                             <option value="">-- Select User --</option>
                             <?php foreach ($deptUsers as $uid => $u): ?>
                                 <option value="<?php echo $uid; ?>"><?php echo htmlspecialchars($u['full_name']); ?></option>
                             <?php endforeach; ?>
                         </select>
+                    </div>
+
+                    <!-- Outgoing Specific -->
+                    <div class="form-group hidden" id="outgoing_fields">
+                        <label>Target Type</label>
+                        <select name="target_type" id="target_type" onchange="toggleOutgoingTargets()">
+                            <option value="ext_other">External (Outside World)</option>
+                            <option value="internal">Internal (My Dept)</option>
+                            <option value="ext_dept">External Department</option>
+                        </select>
+
+                        <div id="target_internal" class="hidden" style="margin-top:10px;">
+                            <label>Select Internal User</label>
+                            <select name="target_user">
+                                <option value="">-- Select User --</option>
+                                <?php foreach ($deptUsers as $uid => $u): ?>
+                                    <option value="<?php echo $uid; ?>"><?php echo htmlspecialchars($u['full_name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div id="target_ext_dept" class="hidden" style="margin-top:10px;">
+                            <label>Select Department</label>
+                            <select name="target_dept">
+                                <option value="">-- Select Department --</option>
+                                <?php
+                                $allDepts = getAllDepartments();
+                                foreach ($allDepts as $d) {
+                                    if ($d['id'] === $deptId) continue;
+                                    echo '<option value="' . $d['id'] . '">' . htmlspecialchars($d['name']) . '</option>';
+                                }
+                                ?>
+                            </select>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn-primary">Register Dak</button>
@@ -245,8 +345,30 @@ usort($outgoingDak, function($a, $b) { return strcmp($b['received_date'], $a['re
             for (var i = 0; i < tabs.length; i++) {
                 tabs[i].classList.remove('active');
             }
-            // Add active class to clicked tab (needs better selector logic or just text match)
             event.target.classList.add('active');
+        }
+
+        function toggleDakFields() {
+            var type = document.getElementById('dak_type').value;
+            if (type === 'incoming') {
+                document.getElementById('incoming_fields').classList.remove('hidden');
+                document.getElementById('outgoing_fields').classList.add('hidden');
+            } else {
+                document.getElementById('incoming_fields').classList.add('hidden');
+                document.getElementById('outgoing_fields').classList.remove('hidden');
+            }
+        }
+
+        function toggleOutgoingTargets() {
+            var targetType = document.getElementById('target_type').value;
+            document.getElementById('target_internal').classList.add('hidden');
+            document.getElementById('target_ext_dept').classList.add('hidden');
+
+            if (targetType === 'internal') {
+                document.getElementById('target_internal').classList.remove('hidden');
+            } else if (targetType === 'ext_dept') {
+                document.getElementById('target_ext_dept').classList.remove('hidden');
+            }
         }
     </script>
 </body>
