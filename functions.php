@@ -107,12 +107,24 @@ function validateLogin($deptId, $userId, $password) {
         return false;
     }
 
+    // Check Department Status
+    $deptMeta = readJSON('departments/' . $deptId . '/department.json');
+    if ($deptMeta && isset($deptMeta['status']) && $deptMeta['status'] !== 'active') {
+        return false; // Department is suspended or archived
+    }
+
     $users = readJSON($deptPath . '/users/users.json');
     if (!$users || !isset($users[$userId])) {
         return false;
     }
 
     $userData = $users[$userId];
+
+    // Check User Status
+    if (isset($userData['status']) && $userData['status'] !== 'active') {
+        return false; // User is suspended or archived
+    }
+
     if (password_verify($password, $userData['password'])) {
         return [
             'role_id' => $userData['role'],
@@ -159,7 +171,8 @@ function createDepartment($name, $id, $password, $adminUserId = null) {
     $metadata = [
         'name' => $name,
         'id' => $id,
-        'created_at' => date('Y-m-d H:i:s')
+        'created_at' => date('Y-m-d H:i:s'),
+        'status' => 'active'
     ];
     if (!writeJSON('departments/' . $id . '/department.json', $metadata)) {
         return ['success' => false, 'message' => 'Failed to create department metadata.'];
@@ -284,7 +297,8 @@ function createRole($deptId, $roleName) {
 
     $roles[$roleId] = [
         'name' => $roleName,
-        'permissions' => [] // Default permissions
+        'permissions' => [], // Default permissions
+        'status' => 'active'
     ];
 
     if (writeJSON($rolesPath, $roles)) {

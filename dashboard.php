@@ -18,20 +18,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     // Superadmin Actions
-    if ($isSuperadmin && $action === 'create_department') {
-        $deptName = trim($_POST['dept_name'] ?? '');
-        $newDeptId = trim($_POST['dept_id'] ?? '');
-        $adminPassword = $_POST['admin_password'] ?? '';
-        $adminUserId = trim($_POST['admin_user_id'] ?? '');
+    if ($isSuperadmin) {
+        if ($action === 'create_department') {
+            $deptName = trim($_POST['dept_name'] ?? '');
+            $newDeptId = trim($_POST['dept_id'] ?? '');
+            $adminPassword = $_POST['admin_password'] ?? '';
+            $adminUserId = trim($_POST['admin_user_id'] ?? '');
 
-        if (empty($deptName) || empty($newDeptId) || empty($adminPassword)) {
-            $error = "All fields except Admin User ID are required.";
-        } else {
-            $result = createDepartment($deptName, $newDeptId, $adminPassword, $adminUserId ?: null);
-            if ($result['success']) {
-                $message = $result['message'];
+            if (empty($deptName) || empty($newDeptId) || empty($adminPassword)) {
+                $error = "All fields except Admin User ID are required.";
             } else {
-                $error = $result['message'];
+                $result = createDepartment($deptName, $newDeptId, $adminPassword, $adminUserId ?: null);
+                if ($result['success']) {
+                    $message = $result['message'];
+                } else {
+                    $error = $result['message'];
+                }
+            }
+        }
+        elseif ($action === 'suspend_department' || $action === 'archive_department' || $action === 'activate_department') {
+            $targetDeptId = $_POST['dept_id'] ?? '';
+            if (!empty($targetDeptId)) {
+                $newStatus = ($action === 'suspend_department') ? 'suspended' : (($action === 'archive_department') ? 'archived' : 'active');
+                $deptMeta = readJSON('departments/' . $targetDeptId . '/department.json');
+                if ($deptMeta) {
+                    $deptMeta['status'] = $newStatus;
+                    if (writeJSON('departments/' . $targetDeptId . '/department.json', $deptMeta)) {
+                        $message = "Department status updated to $newStatus.";
+                    } else {
+                        $error = "Failed to update department status.";
+                    }
+                } else {
+                    $error = "Department not found.";
+                }
+            }
+        }
+        elseif ($action === 'process_request') {
+            $reqId = $_POST['request_id'] ?? '';
+            $decision = $_POST['decision'] ?? ''; // approve or reject
+
+            $requests = readJSON('system/requests.json');
+            $reqIndex = -1;
+            foreach ($requests as $idx => $r) {
+                if ($r['id'] === $reqId) {
+                    $reqIndex = $idx;
+                    break;
+                }
+            }
+
+            if ($reqIndex !== -1 && $requests[$reqIndex]['status'] === 'pending') {
+                $req = $requests[$reqIndex];
+                $newStatus = ($decision === 'approve') ? 'approved' : 'rejected';
+
+                $success = true;
+                if ($newStatus === 'approved') {
+                    // Execute the action
+                    $targetDept = $req['dept_id'];
+                    $targetType = $req['target_type'];
+                    $targetId = $req['target_id'];
+                    $actionType = $req['action_type'];
+
+                    // Update User or Role
+                    if ($targetType === 'user') {
+                        $usersPath = 'departments/' . $targetDept . '/users/users.json';
+                        $users = readJSON($usersPath);
+                        if (isset($users[$targetId])) {
+                            $users[$targetId]['status'] = ($actionType === 'suspend') ? 'suspended' : 'archived';
+                            if (!writeJSON($usersPath, $users)) $success = false;
+                        } else $success = false;
+                    } elseif ($targetType === 'role') {
+                        $rolesPath = 'departments/' . $targetDept . '/roles/roles.json';
+                        $roles = readJSON($rolesPath);
+                        if (isset($roles[$targetId])) {
+                            $roles[$targetId]['status'] = ($actionType === 'suspend') ? 'suspended' : 'archived';
+                            if (!writeJSON($rolesPath, $roles)) $success = false;
+                        } else $success = false;
+                    }
+                }
+
+                if ($success) {
+                    $requests[$reqIndex]['status'] = $newStatus;
+                    writeJSON('system/requests.json', $requests);
+                    $message = "Request " . $decision . "d successfully.";
+                } else {
+                    $error = "Failed to execute request action.";
+                }
             }
         }
     }
@@ -71,6 +142,19 @@ if ($isSuperadmin) {
     $outbox = getOutbox($deptId, $_SESSION['user_id']);
 }
 
+// Superadmin Requests Fetching
+$pendingRequests = [];
+if ($isSuperadmin) {
+    $allReqs = readJSON('system/requests.json');
+    if ($allReqs) {
+        foreach ($allReqs as $r) {
+            if ($r['status'] === 'pending') {
+                $pendingRequests[] = $r;
+            }
+        }
+    }
+}
+
 // Deadline System Sorting Logic
 if (!empty($inbox)) {
     usort($inbox, function($a, $b) {
@@ -106,6 +190,13 @@ if (!empty($inbox)) {
     <title>Yojak - <?php echo $isSuperadmin ? 'Superadmin' : 'Dashboard'; ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 2px solid #ddd; }
+        .tab { padding: 10px 20px; cursor: pointer; border-radius: 4px 4px 0 0; background: #f8f9fa; border: 1px solid transparent; }
+        .tab.active { background: #fff; border: 1px solid #ddd; border-bottom: 2px solid #fff; font-weight: bold; margin-bottom: -2px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
 </head>
 <body>
 
@@ -125,37 +216,152 @@ if (!empty($inbox)) {
                 <!-- SUPERADMIN VIEW -->
                 <section class="departments-list">
                     <div class="section-header">
-                        <h2>Departments</h2>
-                        <button id="showCreateFormBtn" class="btn-primary">Create New Department</button>
+                        <h2>Pending Governance Requests</h2>
                     </div>
-
                     <div class="table-responsive">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Department Name</th>
-                                    <th>Department ID</th>
-                                    <th>Created Date</th>
-                                    <th>User Count</th>
+                                    <th>Department</th>
+                                    <th>Target</th>
+                                    <th>Action</th>
+                                    <th>Reason</th>
+                                    <th>Decision</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php if (empty($departments)): ?>
-                                    <tr>
-                                        <td colspan="4" class="text-center">No departments found.</td>
-                                    </tr>
+                                <?php if (empty($pendingRequests)): ?>
+                                    <tr><td colspan="5" class="text-center">No pending requests.</td></tr>
                                 <?php else: ?>
-                                    <?php foreach ($departments as $dept): ?>
+                                    <?php foreach ($pendingRequests as $req): ?>
                                         <tr>
-                                            <td><?php echo htmlspecialchars($dept['name']); ?></td>
-                                            <td><?php echo htmlspecialchars($dept['id']); ?></td>
-                                            <td><?php echo htmlspecialchars($dept['created_at']); ?></td>
-                                            <td><?php echo htmlspecialchars($dept['user_count']); ?></td>
+                                            <td><?php echo htmlspecialchars($req['dept_id']); ?></td>
+                                            <td><?php echo htmlspecialchars($req['target_name']); ?> (<?php echo htmlspecialchars($req['target_type']); ?>)</td>
+                                            <td><?php echo htmlspecialchars(ucfirst($req['action_type'])); ?></td>
+                                            <td><?php echo htmlspecialchars($req['reason']); ?></td>
+                                            <td>
+                                                <form method="POST" style="display:inline;">
+                                                    <input type="hidden" name="action" value="process_request">
+                                                    <input type="hidden" name="request_id" value="<?php echo $req['id']; ?>">
+                                                    <button type="submit" name="decision" value="approve" class="btn-small" style="background: green; border-color: green;">Approve</button>
+                                                    <button type="submit" name="decision" value="reject" class="btn-small" style="background: red; border-color: red;">Reject</button>
+                                                </form>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
                         </table>
+                    </div>
+                </section>
+
+                <?php
+                    $activeDepts = [];
+                    $archivedDepts = [];
+                    foreach ($departments as $d) {
+                        if (($d['status'] ?? 'active') === 'archived') {
+                            $archivedDepts[] = $d;
+                        } else {
+                            $activeDepts[] = $d;
+                        }
+                    }
+                ?>
+
+                <section class="departments-list" style="margin-top: 2rem;">
+                    <div class="section-header">
+                        <h2>Departments</h2>
+                        <button id="showCreateFormBtn" class="btn-primary">Create New Department</button>
+                    </div>
+
+                    <div class="tabs">
+                        <div class="tab active" onclick="showTab('active-depts', this)">Active Departments</div>
+                        <div class="tab" onclick="showTab('archived-depts', this)">Archived</div>
+                    </div>
+
+                    <!-- Active Tab -->
+                    <div id="active-depts" class="tab-content active">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Department Name</th>
+                                        <th>Department ID</th>
+                                        <th>Created Date</th>
+                                        <th>User Count</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($activeDepts)): ?>
+                                        <tr>
+                                            <td colspan="6" class="text-center">No active departments found.</td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($activeDepts as $dept): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($dept['name']); ?></td>
+                                                <td><?php echo htmlspecialchars($dept['id']); ?></td>
+                                                <td><?php echo htmlspecialchars($dept['created_at']); ?></td>
+                                                <td><?php echo htmlspecialchars($dept['user_count']); ?></td>
+                                                <td><?php echo htmlspecialchars($dept['status'] ?? 'active'); ?></td>
+                                                <td>
+                                                    <form method="POST" style="display:inline;">
+                                                        <input type="hidden" name="dept_id" value="<?php echo $dept['id']; ?>">
+                                                        <?php if (($dept['status'] ?? 'active') !== 'suspended'): ?>
+                                                            <button type="submit" name="action" value="suspend_department" class="btn-small" style="background: orange; border-color: orange;" onclick="return confirm('Suspend this department?');">Suspend</button>
+                                                        <?php else: ?>
+                                                            <button type="submit" name="action" value="activate_department" class="btn-small" style="background: green; border-color: green;">Activate</button>
+                                                        <?php endif; ?>
+
+                                                        <button type="submit" name="action" value="archive_department" class="btn-small" style="background: gray; border-color: gray;" onclick="return confirm('Archive this department?');">Archive</button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Archived Tab -->
+                    <div id="archived-depts" class="tab-content">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Department Name</th>
+                                        <th>Department ID</th>
+                                        <th>Created Date</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($archivedDepts)): ?>
+                                        <tr>
+                                            <td colspan="5" class="text-center">No archived departments found.</td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($archivedDepts as $dept): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($dept['name']); ?></td>
+                                                <td><?php echo htmlspecialchars($dept['id']); ?></td>
+                                                <td><?php echo htmlspecialchars($dept['created_at']); ?></td>
+                                                <td><?php echo htmlspecialchars($dept['status']); ?></td>
+                                                <td>
+                                                    <form method="POST" style="display:inline;">
+                                                        <input type="hidden" name="dept_id" value="<?php echo $dept['id']; ?>">
+                                                        <button type="submit" name="action" value="activate_department" class="btn-small" style="background: green; border-color: green;">Un-Archive</button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
 
@@ -314,6 +520,14 @@ if (!empty($inbox)) {
                                     <a href="manage_templates.php" class="btn-small">Manage</a>
                                 </li>
                                 <li>
+                                    <strong>Dak Register</strong>
+                                    <a href="dak_service.php" class="btn-small">Open Register</a>
+                                </li>
+                                <li>
+                                    <strong>Governance Requests</strong>
+                                    <a href="request_action.php" class="btn-small">Manage Requests</a>
+                                </li>
+                                <li>
                                     <strong>Backup</strong>
                                     <a href="backup.php" class="btn-small" style="background-color: #6610f2; border-color: #6610f2;">Download Data (.zip)</a>
                                 </li>
@@ -399,6 +613,26 @@ if (!empty($inbox)) {
 
         window.onclick = function(event) {
             if (event.target == saModal) saModal.style.display = "none";
+        }
+
+        function showTab(tabId, tabElement) {
+            // Hide all tab contents
+            var contents = document.getElementsByClassName('tab-content');
+            for (var i = 0; i < contents.length; i++) {
+                contents[i].style.display = 'none';
+                contents[i].classList.remove('active');
+            }
+            // Show selected
+            document.getElementById(tabId).style.display = 'block';
+            document.getElementById(tabId).classList.add('active');
+
+            // Reset tabs
+            var tabs = document.getElementsByClassName('tab');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove('active');
+            }
+            // Active current
+            tabElement.classList.add('active');
         }
     </script>
 </body>
