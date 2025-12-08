@@ -110,10 +110,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif (!$isSuperadmin && $deptId && $isAdmin) {
         if ($action === 'create_role') {
             $roleName = trim($_POST['role_name'] ?? '');
-            if (empty($roleName)) {
-                $error = "Role Name is required.";
+            $roleSlug = trim($_POST['role_slug'] ?? '');
+
+            if (empty($roleName) || empty($roleSlug)) {
+                $error = "Role Name and ID are required.";
             } else {
-                $result = createRole($deptId, $roleName);
+                $result = createRole($deptId, $roleName, $roleSlug);
                 if ($result['success']) {
                     $message = $result['message'];
                 } else {
@@ -306,6 +308,8 @@ if (!empty($inbox)) {
                                                 <td><?php echo htmlspecialchars($dept['user_count']); ?></td>
                                                 <td><?php echo htmlspecialchars($dept['status'] ?? 'active'); ?></td>
                                                 <td>
+                                                    <a href="admin_view_dept.php?dept_id=<?php echo $dept['id']; ?>" class="btn-small btn-secondary">View Staff</a>
+
                                                     <form method="POST" style="display:inline;">
                                                         <input type="hidden" name="dept_id" value="<?php echo $dept['id']; ?>">
                                                         <?php if (($dept['status'] ?? 'active') !== 'suspended'): ?>
@@ -351,6 +355,8 @@ if (!empty($inbox)) {
                                                 <td><?php echo htmlspecialchars($dept['created_at']); ?></td>
                                                 <td><?php echo htmlspecialchars($dept['status']); ?></td>
                                                 <td>
+                                                    <a href="admin_view_dept.php?dept_id=<?php echo $dept['id']; ?>" class="btn-small btn-secondary">View Staff</a>
+
                                                     <form method="POST" style="display:inline;">
                                                         <input type="hidden" name="dept_id" value="<?php echo $dept['id']; ?>">
                                                         <button type="submit" name="action" value="activate_department" class="btn-small" style="background: green; border-color: green;">Un-Archive</button>
@@ -539,15 +545,21 @@ if (!empty($inbox)) {
                             <div class="section-header">
                                 <h2>Manage Roles</h2>
                             </div>
-                            <form method="POST" action="" class="inline-form">
+                            <form method="POST" action="" class="inline-form" style="display: block;">
                                 <input type="hidden" name="action" value="create_role">
-                                <div class="form-group">
-                                    <input type="text" name="role_name" placeholder="New Role Name" required>
+                                <div class="form-group" style="margin-bottom: 0.5rem;">
+                                    <label style="display:block; font-size: 0.8em; margin-bottom: 2px;">Role Name</label>
+                                    <input type="text" id="new_role_name" name="role_name" placeholder="e.g. Chief Engineer" required oninput="generateRoleSlug()">
                                 </div>
-                                <button type="submit" class="btn-secondary">Add</button>
+                                <div class="form-group" style="margin-bottom: 0.5rem;">
+                                    <label style="display:block; font-size: 0.8em; margin-bottom: 2px;">Role ID (Slug)</label>
+                                    <input type="text" id="new_role_slug" name="role_slug" placeholder="e.g. CE" required>
+                                    <small style="color:#666; display:block; margin-top:2px;">Auto-filled (initials) but editable.</small>
+                                </div>
+                                <button type="submit" class="btn-secondary" style="margin-top: 5px;">Add Role</button>
                             </form>
 
-                            <ul class="list-group">
+                            <ul class="list-group" style="margin-top: 1rem;">
                                 <?php foreach ($deptRoles as $rId => $role): ?>
                                     <li>
                                         <strong><?php echo htmlspecialchars($role['name']); ?></strong>
@@ -600,6 +612,30 @@ if (!empty($inbox)) {
     </div>
 
     <script>
+        // Role Slug Generation Logic
+        function generateRoleSlug() {
+            var name = document.getElementById('new_role_name').value;
+            var slugField = document.getElementById('new_role_slug');
+
+            if (name) {
+                // Extract Initials
+                var words = name.trim().split(/\s+/);
+                var initials = '';
+                words.forEach(function(word) {
+                    if (word.length > 0) {
+                        initials += word.charAt(0).toUpperCase();
+                    }
+                });
+
+                // If the user hasn't heavily modified it, update it.
+                // Or just update it. The prompt says "Auto-Fill Logic".
+                // I will update it.
+                if (document.activeElement !== slugField) {
+                     slugField.value = initials;
+                }
+            }
+        }
+
         // Modal Logic
         // Superadmin Modal
         var saModal = document.getElementById("createDepartmentModal");

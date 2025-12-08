@@ -34,11 +34,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Validate Target
         $targetName = '';
         if ($targetType === 'user') {
-            if (!isset($deptUsers[$targetId])) $error = "Invalid User ID.";
-            else $targetName = $deptUsers[$targetId]['full_name'];
+            if (!isset($deptUsers[$targetId])) {
+                $error = "Invalid User ID.";
+            } else {
+                // Prevent Self-Sabotage: Dept Admin cannot request action on themselves
+                // The Admin user has role 'admin.{deptId}'
+                $adminRoleId = 'admin.' . $deptId;
+                if ($deptUsers[$targetId]['role'] === $adminRoleId) {
+                    $error = "You cannot request actions on the Department Administrator.";
+                } else {
+                    $targetName = $deptUsers[$targetId]['full_name'];
+                }
+            }
         } elseif ($targetType === 'role') {
-            if (!isset($deptRoles[$targetId])) $error = "Invalid Role ID.";
-            else $targetName = $deptRoles[$targetId]['name'];
+            if (!isset($deptRoles[$targetId])) {
+                $error = "Invalid Role ID.";
+            } else {
+                // Prevent requesting action on the Admin Role itself
+                if ($targetId === 'admin.' . $deptId) {
+                    $error = "You cannot request actions on the Administrator Role.";
+                } else {
+                    $targetName = $deptRoles[$targetId]['name'];
+                }
+            }
         } else {
             $error = "Invalid target type.";
         }
