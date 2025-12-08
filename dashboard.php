@@ -216,6 +216,17 @@ if (!empty($inbox)) {
 
             <?php if ($isSuperadmin): ?>
                 <!-- SUPERADMIN VIEW -->
+
+                <!-- System Management Section -->
+                <section class="card" style="margin-bottom: 2rem;">
+                    <div class="section-header">
+                        <h2>System Management</h2>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <a href="admin_templates.php" class="btn-primary">Manage Global Templates</a>
+                    </div>
+                </section>
+
                 <section class="departments-list">
                     <div class="section-header">
                         <h2>Pending Governance Requests</h2>
@@ -508,6 +519,9 @@ if (!empty($inbox)) {
                         </div>
                         <p style="margin-bottom: 1rem;">Generate official documents using templates.</p>
                         <a href="create_document.php" class="btn-primary">Create New Document</a>
+                        <div style="margin-top: 10px;">
+                            <a href="dak_outgoing.php" class="btn-secondary">Outgoing Dak (New)</a>
+                        </div>
                     </section>
 
                     <?php if ($isAdmin): ?>
