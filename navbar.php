@@ -36,12 +36,19 @@ if (!$isSuperadmin && $deptId) {
             <?php if ($isAdmin): ?>
                 <a href="manage_contractors.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'manage_contractors.php' ? 'active' : ''; ?>">Contractors</a>
                 <a href="manage_templates.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'manage_templates.php' ? 'active' : ''; ?>">Templates</a>
+                <a href="master_register.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'master_register.php' ? 'active' : ''; ?>">Master Register</a>
             <?php else: ?>
                 <!-- Regular User Links -->
                 <!-- Ideally these link to dashboard with filters or specific pages if they exist.
                      For now pointing to dashboard sections or create_document -->
                 <a href="create_document.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'create_document.php' ? 'active' : ''; ?>">Create New Document</a>
             <?php endif; ?>
+
+            <!-- Search Bar for Department Users -->
+            <form action="search.php" method="GET" class="search-form" style="display: inline-block; margin-left: 15px;">
+                <input type="text" name="q" placeholder="Search ID or Title..." required style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+                <button type="submit" style="padding: 5px 10px; border-radius: 4px; border: none; background-color: #5bc0de; color: white; cursor: pointer;">Search</button>
+            </form>
         <?php endif; ?>
     </div>
 
