@@ -24,16 +24,6 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
     <link rel="stylesheet" href="style.css">
     <style>
         .hidden { display: none; }
-        .text-red-500 { color: #ef4444; }
-        .text-sm { font-size: 0.875rem; }
-        .reset-btn {
-            background-color: #6b7280;
-            margin-top: 15px;
-            margin-left: 10px;
-        }
-        .reset-btn:hover {
-            background-color: #4b5563;
-        }
     </style>
 </head>
 <body class="login-page">
@@ -50,14 +40,11 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
             <div class="error-message"><?php echo htmlspecialchars(urldecode($error)); ?></div>
         <?php endif; ?>
 
-        <form id="loginForm" method="POST" action="login.php" autocomplete="off">
+        <form id="loginForm" method="POST" action="login.php">
             <!-- Box 1: Department ID -->
             <div class="form-group">
                 <label for="dept_id">Department ID</label>
-                <!-- Anti-Autofill Strategy: Unique name, readonly/onfocus hack -->
-                <input type="text" id="dept_id" name="yojak_dept_id_search" placeholder="Enter Department ID (e.g. dws)"
-                       required autocomplete="off" readonly onfocus="this.removeAttribute('readonly');">
-                <div id="dept_error" class="text-red-500 text-sm hidden" style="margin-top: 5px;"></div>
+                <input type="text" id="dept_id" name="dept_id" placeholder="Enter Department ID (e.g. dws)" required autocomplete="off">
             </div>
 
             <!-- Box 2: Role (Initially Hidden) -->
@@ -78,10 +65,7 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
             <div class="form-group hidden" id="password_group">
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" placeholder="Enter Password" required>
-                <div style="display: flex; align-items: center;">
-                    <button type="submit" style="margin-top: 15px;">Login</button>
-                    <button type="button" id="reset_btn" class="reset-btn">Reset</button>
-                </div>
+                <button type="submit" style="margin-top: 15px;">Login</button>
             </div>
 
             <!-- Superadmin override helper (hidden logic handled by JS/Backend) -->
@@ -99,15 +83,11 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const deptInput = document.getElementById('dept_id');
-            const deptError = document.getElementById('dept_error');
             const roleSelect = document.getElementById('role_id');
             const roleGroup = document.getElementById('role_group');
             const userGroup = document.getElementById('user_group');
             const passwordGroup = document.getElementById('password_group');
             const superadminNotice = document.getElementById('superadmin_notice');
-            const resetBtn = document.getElementById('reset_btn');
-            const userInput = document.getElementById('user_id');
-            const passwordInput = document.getElementById('password');
 
             function resetFields() {
                 roleGroup.classList.add('hidden');
@@ -115,36 +95,35 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
                 passwordGroup.classList.add('hidden');
                 roleSelect.innerHTML = '<option value="">Select Role</option>';
                 superadminNotice.classList.add('hidden');
-                // Don't clear dept input here as user might be typing
             }
-
-            function clearForm() {
-                deptInput.value = '';
-                // Re-apply readonly to prevent immediate autofill if they click back in
-                deptInput.setAttribute('readonly', 'readonly');
-                userInput.value = '';
-                passwordInput.value = '';
-                roleSelect.value = '';
-                deptError.textContent = '';
-                deptError.classList.add('hidden');
-                resetFields();
-            }
-
-            resetBtn.addEventListener('click', clearForm);
 
             deptInput.addEventListener('blur', function() {
                 const deptId = this.value.trim();
-
-                // Clear previous error
-                deptError.textContent = '';
-                deptError.classList.add('hidden');
 
                 // Reset subsequent fields when dept changes
                 resetFields();
 
                 if (deptId === '') {
-                    // Just return, do nothing if empty
-                    return;
+                    // If empty, assume maybe superadmin wants to login or just empty
+                    // But superadmin login usually doesn't have a dept ID.
+                    // The prompt says "Box 1: Department ID (User types dws)".
+                    // If the user wants superadmin, they might type nothing or handle it differently.
+                    // Wait, existing index.php handled superadmin by checking if userId is admin and deptId is empty.
+                    // In this new flow, if I leave Dept ID empty, I can't proceed?
+                    // The prompt says "Step 1: Input Field 'Department ID'".
+                    // Let's assume for superadmin, maybe they type 'admin' or leave it blank?
+                    // The prompt doesn't specify superadmin flow in the new design.
+                    // However, I should probably allow a way.
+                    // If I leave Dept ID empty, I can't trigger the blur event effectively to show other fields if they depend on it.
+                    // Let's look at the old code: "placeholder='Enter Department ID (Leave empty for Superadmin)'"
+                    // So if it's empty, maybe we show User ID and Password directly?
+                    if (deptId === '') {
+                         // Show User ID and Password for potential Superadmin login
+                         userGroup.classList.remove('hidden');
+                         passwordGroup.classList.remove('hidden');
+                         superadminNotice.classList.remove('hidden');
+                         return;
+                    }
                 }
 
                 if (deptId) {
@@ -152,10 +131,10 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
                         .then(response => response.json())
                         .then(data => {
                             if (data.error) {
-                                // Show soft validation error
-                                deptError.textContent = data.error;
-                                deptError.classList.remove('hidden');
-                                // Do not clear the field, let user edit
+                                // If error (e.g. dept not found), just show user/pass so they can try or correct it?
+                                // Or show error? Prompt says "Step 2: Dropdown... Populate with results".
+                                // If dept is invalid, maybe we shouldn't show the role dropdown.
+                                alert(data.error);
                             } else if (data.length > 0) {
                                 roleSelect.innerHTML = '<option value="">Select Role</option>';
                                 data.forEach(role => {
@@ -166,15 +145,11 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
                                 });
                                 roleGroup.classList.remove('hidden');
                             } else {
-                                // Valid format maybe, but no roles found? Treated as error.
-                                deptError.textContent = "No roles found for this department.";
-                                deptError.classList.remove('hidden');
+                                alert("No roles found for this department.");
                             }
                         })
                         .catch(err => {
                             console.error('Error fetching roles:', err);
-                            deptError.textContent = "Error connecting to server.";
-                            deptError.classList.remove('hidden');
                         });
                 }
             });
@@ -188,6 +163,7 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
                 }
             });
 
+            const userInput = document.getElementById('user_id');
             userInput.addEventListener('input', function() {
                 if (this.value.trim() !== '') {
                     passwordGroup.classList.remove('hidden');
