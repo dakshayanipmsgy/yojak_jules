@@ -173,9 +173,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
 
 // Check AI Availability
 $gConfig = readJSON('system/global_config.json');
-$aiKeys = $gConfig['api_keys'] ?? [];
-$hasOpenAI = !empty($aiKeys['openai']);
-$hasGemini = !empty($aiKeys['gemini']);
+$aiConfig = $gConfig['ai_config'] ?? [];
+$hasOpenAI = !empty($aiConfig['openai']['key']);
+$hasGemini = !empty($aiConfig['gemini']['key']);
 
 // Handle Save
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
@@ -436,15 +436,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                     <p style="color:red;">No AI Configured. Contact Superadmin.</p>
                 <?php else: ?>
                     <div class="form-group">
-                        <label>Select Intelligence:</label>
-                        <div style="display:flex; gap:15px; margin-top:5px;">
+                        <label for="aiProviderSelect">Select Intelligence:</label>
+                        <select id="aiProviderSelect" style="width: 100%; padding: 0.5rem; margin-top: 5px;">
                             <?php if ($hasGemini): ?>
-                                <label><input type="radio" name="ai_provider" value="gemini" checked> Google Gemini</label>
+                                <option value="gemini">Google Gemini</option>
                             <?php endif; ?>
                             <?php if ($hasOpenAI): ?>
-                                <label><input type="radio" name="ai_provider" value="openai" <?php echo (!$hasGemini) ? 'checked' : ''; ?>> OpenAI GPT</label>
+                                <option value="openai">OpenAI GPT</option>
                             <?php endif; ?>
-                        </div>
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -532,14 +532,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
         var status = document.getElementById('aiStatus');
 
         // Get Selected Provider
-        var provider = '';
-        var radios = document.getElementsByName('ai_provider');
-        for (var i = 0; i < radios.length; i++) {
-            if (radios[i].checked) {
-                provider = radios[i].value;
-                break;
-            }
-        }
+        var providerSelect = document.getElementById('aiProviderSelect');
+        var provider = providerSelect ? providerSelect.value : '';
 
         if (!provider) {
              alert("No AI Provider selected or available.");
