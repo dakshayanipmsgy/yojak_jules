@@ -104,6 +104,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
         }
     }
 
+    // Handle AI Generated Content Injection
+    $customContent = $_POST['custom_content'] ?? '';
+
     if (empty($templateId) || !$validSelection) {
         $error = "Please select a template and valid recipient.";
     } else {
@@ -114,7 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
 
             // Load Template Content
             $content = '';
-            if ($templateId === 'blank') {
+            if (!empty($customContent)) {
+                // Use AI Content if provided
+                $content = $customContent;
+            } elseif ($templateId === 'blank') {
                 $content = '<html><body><p>Type your content here...</p></body></html>';
             } else {
                 $templatePath = '';
@@ -296,8 +302,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                 <div class="error-message"><?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
 
-            <form method="POST" action="">
+            <form method="POST" action="" id="generateForm">
                 <input type="hidden" name="generate" value="1">
+                <input type="hidden" name="custom_content" id="custom_content_field" value="">
                 <?php if ($editDocId): ?>
                     <input type="hidden" name="existing_doc_id" value="<?php echo htmlspecialchars($editDocId); ?>">
                 <?php endif; ?>
@@ -382,19 +389,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
 
                 <div class="form-group">
                     <label>Select Template</label>
-                    <select name="template_id" required>
-                        <option value="">-- Choose Template --</option>
-                        <option value="blank" style="font-weight:bold;">Create Blank Document</option>
-                        <?php foreach ($templates as $t): ?>
-                            <?php if ($t['id'] === 'blank') continue; ?>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <select name="template_id" id="template_id_select" required style="flex-grow:1;">
+                            <option value="">-- Choose Template --</option>
+                            <option value="blank" style="font-weight:bold;">Create Blank Document</option>
+                            <?php foreach ($templates as $t): ?>
+                                <?php if ($t['id'] === 'blank') continue; ?>
                             <?php
                                 $selected = '';
                                 if (isset($_POST['template_id']) && $_POST['template_id'] == $t['id']) $selected = 'selected';
                                 elseif ($editDoc && isset($editDoc['template_id']) && $editDoc['template_id'] == $t['id']) $selected = 'selected';
                             ?>
-                            <option value="<?php echo $t['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($t['display_title']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                                <option value="<?php echo $t['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($t['display_title']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" class="btn-secondary" style="background:#6f42c1; color:white; border:none;" onclick="openAiModal()">✨ Draft with AI</button>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -409,20 +419,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                 </div>
             </form>
         </div>
+
+        <!-- AI Modal -->
+        <div id="aiModal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeAiModal()">&times;</span>
+                <h2>✨ AI Drafting Assistant</h2>
+                <div class="form-group">
+                    <label>Describe the letter you want to write:</label>
+                    <textarea id="aiPrompt" rows="4" placeholder="e.g. Write a strict letter to Contractor XYZ regarding the delay in road construction project..."></textarea>
+                </div>
+                <div id="aiStatus" style="margin-bottom:10px; color:#666;"></div>
+                <div class="form-actions">
+                    <button type="button" class="btn-primary" onclick="generateWithAi()">Generate Draft</button>
+                </div>
+            </div>
+        </div>
+
     <?php else: ?>
         <div class="preview-actions no-print">
             <button onclick="window.print()" class="btn-primary">Print</button>
 
-            <form method="POST" action="" style="display:inline-block;">
+            <form method="POST" action="" style="display:inline-block;" id="saveForm">
                 <input type="hidden" name="save_document" value="1">
-                <input type="hidden" name="html_content" value="<?php echo htmlspecialchars($generatedHtml); ?>">
+                <input type="hidden" name="html_content" id="final_html_content" value="<?php echo htmlspecialchars($generatedHtml); ?>">
                 <input type="hidden" name="title" value="<?php echo htmlspecialchars($documentTitle ?? 'New Document'); ?>">
                 <input type="hidden" name="template_id" value="<?php echo htmlspecialchars($templateId); ?>">
                 <?php if ($editDocId): ?>
                     <input type="hidden" name="existing_doc_id" value="<?php echo htmlspecialchars($editDocId); ?>">
                 <?php endif; ?>
 
-                <button type="submit" class="btn-secondary"><?php echo $editDocId ? 'Update Draft' : 'Save as Draft'; ?></button>
+                <button type="button" onclick="submitSave()" class="btn-secondary"><?php echo $editDocId ? 'Update Draft' : 'Save as Draft'; ?></button>
             </form>
 
             <a href="create_document.php" class="btn-secondary">Start Over</a>
@@ -449,13 +476,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                 </div>
             <?php endif; ?>
 
-            <div class="document-content">
+            <div class="document-content" id="editableContent" contenteditable="true" style="outline:none; min-height: 200px;">
                 <?php echo $generatedHtml; ?>
             </div>
         </div>
     <?php endif; ?>
 
     <script>
+    // Make content editable logic
+    function submitSave() {
+        var content = document.getElementById('editableContent').innerHTML;
+        document.getElementById('final_html_content').value = content;
+        document.getElementById('saveForm').submit();
+    }
+
+    // AI Modal Logic
+    var aiModal = document.getElementById('aiModal');
+    function openAiModal() {
+        aiModal.style.display = 'block';
+    }
+    function closeAiModal() {
+        aiModal.style.display = 'none';
+    }
+    window.onclick = function(event) {
+        if (event.target == aiModal) {
+            closeAiModal();
+        }
+    }
+
+    function generateWithAi() {
+        var prompt = document.getElementById('aiPrompt').value;
+        var status = document.getElementById('aiStatus');
+
+        if(!prompt.trim()) {
+            alert("Please enter a description.");
+            return;
+        }
+
+        status.innerHTML = "Generating... Please wait...";
+
+        var formData = new FormData();
+        formData.append('prompt', prompt);
+
+        fetch('ai_helper.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                status.innerHTML = "";
+                // Set the custom content hidden field
+                document.getElementById('custom_content_field').value = data.data;
+                // Set template to 'blank' (as a carrier)
+                document.getElementById('template_id_select').value = 'blank';
+                // Close modal
+                closeAiModal();
+                // Submit main form
+                document.getElementById('generateForm').submit();
+            } else {
+                status.innerHTML = "<span style='color:red'>Error: " + data.message + "</span>";
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            status.innerHTML = "<span style='color:red'>An error occurred.</span>";
+        });
+    }
+
     function toggleMode() {
         var modes = ['contractor', 'internal', 'ext_dept', 'manual'];
         var selected = document.querySelector('input[name="recipient_mode"]:checked').value;
