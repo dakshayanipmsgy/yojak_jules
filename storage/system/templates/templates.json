@@ -1,1 +1,37 @@
-[]
+{
+    "tpl_work_order": {
+        "id": "tpl_work_order",
+        "title": "Work Order",
+        "filename": "work_order.html",
+        "updated_at": "2024-10-27 10:00:00",
+        "is_universal": true
+    },
+    "tpl_show_cause": {
+        "id": "tpl_show_cause",
+        "title": "Show Cause Notice",
+        "filename": "show_cause_notice.html",
+        "updated_at": "2024-10-27 10:00:00",
+        "is_universal": true
+    },
+    "tpl_sanction": {
+        "id": "tpl_sanction",
+        "title": "Sanction Letter",
+        "filename": "sanction_letter.html",
+        "updated_at": "2024-10-27 10:00:00",
+        "is_universal": true
+    },
+    "tpl_meeting": {
+        "id": "tpl_meeting",
+        "title": "Meeting Notice",
+        "filename": "meeting_notice.html",
+        "updated_at": "2024-10-27 10:00:00",
+        "is_universal": true
+    },
+    "tpl_noc": {
+        "id": "tpl_noc",
+        "title": "NOC Certificate",
+        "filename": "noc_certificate.html",
+        "updated_at": "2024-10-27 10:00:00",
+        "is_universal": true
+    }
+}
