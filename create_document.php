@@ -171,6 +171,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     }
 }
 
+// Check AI Availability
+$gConfig = readJSON('system/global_config.json');
+$aiKeys = $gConfig['api_keys'] ?? [];
+$hasOpenAI = !empty($aiKeys['openai']);
+$hasGemini = !empty($aiKeys['gemini']);
+
 // Handle Save
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
     $title = $_POST['title'] ?? 'Untitled Document';
@@ -425,14 +431,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
             <div class="modal-content">
                 <span class="close-btn" onclick="closeAiModal()">&times;</span>
                 <h2>✨ AI Drafting Assistant</h2>
-                <div class="form-group">
-                    <label>Describe the letter you want to write:</label>
-                    <textarea id="aiPrompt" rows="4" placeholder="e.g. Write a strict letter to Contractor XYZ regarding the delay in road construction project..."></textarea>
-                </div>
-                <div id="aiStatus" style="margin-bottom:10px; color:#666;"></div>
-                <div class="form-actions">
-                    <button type="button" class="btn-primary" onclick="generateWithAi()">Generate Draft</button>
-                </div>
+
+                <?php if (!$hasOpenAI && !$hasGemini): ?>
+                    <p style="color:red;">No AI Configured. Contact Superadmin.</p>
+                <?php else: ?>
+                    <div class="form-group">
+                        <label>Select Intelligence:</label>
+                        <div style="display:flex; gap:15px; margin-top:5px;">
+                            <?php if ($hasGemini): ?>
+                                <label><input type="radio" name="ai_provider" value="gemini" checked> Google Gemini</label>
+                            <?php endif; ?>
+                            <?php if ($hasOpenAI): ?>
+                                <label><input type="radio" name="ai_provider" value="openai" <?php echo (!$hasGemini) ? 'checked' : ''; ?>> OpenAI GPT</label>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Describe the letter you want to write:</label>
+                        <textarea id="aiPrompt" rows="4" placeholder="e.g. Write a strict letter to Contractor XYZ regarding the delay in road construction project..."></textarea>
+                    </div>
+                    <div id="aiStatus" style="margin-bottom:10px; color:#666;"></div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" onclick="generateWithAi()">Generate Draft</button>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -508,6 +531,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
         var prompt = document.getElementById('aiPrompt').value;
         var status = document.getElementById('aiStatus');
 
+        // Get Selected Provider
+        var provider = '';
+        var radios = document.getElementsByName('ai_provider');
+        for (var i = 0; i < radios.length; i++) {
+            if (radios[i].checked) {
+                provider = radios[i].value;
+                break;
+            }
+        }
+
+        if (!provider) {
+             alert("No AI Provider selected or available.");
+             return;
+        }
+
         if(!prompt.trim()) {
             alert("Please enter a description.");
             return;
@@ -517,6 +555,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
 
         var formData = new FormData();
         formData.append('prompt', prompt);
+        formData.append('provider', provider);
 
         fetch('ai_helper.php', {
             method: 'POST',

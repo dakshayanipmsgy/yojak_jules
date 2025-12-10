@@ -20,11 +20,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Superadmin Actions
     if ($isSuperadmin) {
         if ($action === 'update_settings') {
-            $apiKey = trim($_POST['ai_api_key'] ?? '');
+            $openaiKey = trim($_POST['openai_key'] ?? '');
+            $geminiKey = trim($_POST['gemini_key'] ?? '');
             $configPath = 'system/global_config.json';
             $config = readJSON($configPath);
             if ($config) {
-                $config['ai_api_key'] = $apiKey;
+                $config['api_keys']['openai'] = $openaiKey;
+                $config['api_keys']['gemini'] = $geminiKey;
                 if (writeJSON($configPath, $config)) {
                     $message = "Settings updated successfully.";
                 } else {
@@ -421,14 +423,17 @@ if (!empty($inbox)) {
                         <h2>System Settings</h2>
                         <form method="POST" action="">
                             <input type="hidden" name="action" value="update_settings">
+                            <?php
+                                $gConfig = readJSON('system/global_config.json');
+                                $keys = $gConfig['api_keys'] ?? ['openai' => '', 'gemini' => ''];
+                            ?>
                             <div class="form-group">
-                                <label for="ai_api_key">AI API Key (OpenAI / Compatible)</label>
-                                <?php
-                                    $gConfig = readJSON('system/global_config.json');
-                                    $currentKey = $gConfig['ai_api_key'] ?? '';
-                                ?>
-                                <input type="password" id="ai_api_key" name="ai_api_key" value="<?php echo htmlspecialchars($currentKey); ?>" placeholder="sk-..." style="width: 100%; padding: 0.5rem;">
-                                <small>Enter your API key here.</small>
+                                <label for="openai_key">OpenAI API Key</label>
+                                <input type="password" id="openai_key" name="openai_key" value="<?php echo htmlspecialchars($keys['openai'] ?? ''); ?>" placeholder="sk-..." style="width: 100%; padding: 0.5rem;">
+                            </div>
+                            <div class="form-group">
+                                <label for="gemini_key">Google Gemini API Key</label>
+                                <input type="password" id="gemini_key" name="gemini_key" value="<?php echo htmlspecialchars($keys['gemini'] ?? ''); ?>" placeholder="AI..." style="width: 100%; padding: 0.5rem;">
                             </div>
                             <div class="form-actions">
                                 <button type="submit" class="btn-primary">Save Settings</button>
