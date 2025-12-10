@@ -19,7 +19,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Superadmin Actions
     if ($isSuperadmin) {
-        if ($action === 'create_department') {
+        if ($action === 'update_settings') {
+            $apiKey = trim($_POST['ai_api_key'] ?? '');
+            $configPath = 'system/global_config.json';
+            $config = readJSON($configPath);
+            if ($config) {
+                $config['ai_api_key'] = $apiKey;
+                if (writeJSON($configPath, $config)) {
+                    $message = "Settings updated successfully.";
+                } else {
+                    $error = "Failed to save settings.";
+                }
+            } else {
+                $error = "Configuration file not found.";
+            }
+        }
+        elseif ($action === 'create_department') {
             $deptName = trim($_POST['dept_name'] ?? '');
             $newDeptId = trim($_POST['dept_id'] ?? '');
             $adminPassword = $_POST['admin_password'] ?? '';
@@ -241,6 +256,7 @@ if (!empty($inbox)) {
                     </div>
                     <div style="display: flex; gap: 1rem;">
                         <a href="admin_templates.php" class="btn-primary">Manage Global Templates</a>
+                        <button id="showSettingsBtn" class="btn-secondary">AI Configuration</button>
                     </div>
                 </section>
 
@@ -399,9 +415,31 @@ if (!empty($inbox)) {
                     </div>
                 </section>
 
+                <div id="settingsModal" class="modal">
+                    <div class="modal-content">
+                        <span class="close-btn" id="closeSettings">&times;</span>
+                        <h2>System Settings</h2>
+                        <form method="POST" action="">
+                            <input type="hidden" name="action" value="update_settings">
+                            <div class="form-group">
+                                <label for="ai_api_key">AI API Key (OpenAI / Compatible)</label>
+                                <?php
+                                    $gConfig = readJSON('system/global_config.json');
+                                    $currentKey = $gConfig['ai_api_key'] ?? '';
+                                ?>
+                                <input type="password" id="ai_api_key" name="ai_api_key" value="<?php echo htmlspecialchars($currentKey); ?>" placeholder="sk-..." style="width: 100%; padding: 0.5rem;">
+                                <small>Enter your API key here.</small>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn-primary">Save Settings</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
                 <div id="createDepartmentModal" class="modal">
                     <div class="modal-content">
-                        <span class="close-btn">&times;</span>
+                        <span class="close-btn" id="closeCreate">&times;</span>
                         <h2>Create New Department</h2>
                         <form method="POST" action="">
                             <input type="hidden" name="action" value="create_department">
@@ -671,15 +709,25 @@ if (!empty($inbox)) {
         // Superadmin Modal
         var saModal = document.getElementById("createDepartmentModal");
         var saBtn = document.getElementById("showCreateFormBtn");
-        var saClose = document.getElementsByClassName("close-btn");
+        var saCloseCreate = document.getElementById("closeCreate");
 
         if (saModal && saBtn) {
             saBtn.onclick = function() { saModal.style.display = "block"; }
-            if (saClose[0]) saClose[0].onclick = function() { saModal.style.display = "none"; }
+            if (saCloseCreate) saCloseCreate.onclick = function() { saModal.style.display = "none"; }
+        }
+
+        var setModal = document.getElementById("settingsModal");
+        var setBtn = document.getElementById("showSettingsBtn");
+        var setClose = document.getElementById("closeSettings");
+
+        if (setModal && setBtn) {
+            setBtn.onclick = function() { setModal.style.display = "block"; }
+            if (setClose) setClose.onclick = function() { setModal.style.display = "none"; }
         }
 
         window.onclick = function(event) {
             if (event.target == saModal) saModal.style.display = "none";
+            if (event.target == setModal) setModal.style.display = "none";
         }
 
         function showTab(tabId, tabElement) {
