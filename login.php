@@ -7,7 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$deptId = $_POST['yojak_dept_id_search'] ?? $_POST['dept_id'] ?? '';
+$deptId = $_POST['dept_id'] ?? '';
 $roleId = $_POST['role_id'] ?? '';
 $userId = $_POST['user_id'] ?? '';
 $password = $_POST['password'] ?? '';
