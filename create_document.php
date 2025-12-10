@@ -267,12 +267,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
             margin-bottom: 2rem;
         }
 
-        /* Screen View for Page */
-        .page-preview {
-            background: white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            margin: 20px auto;
-            border: 1px solid #ccc;
+        /* Base styles for the document container - visible on SCREEN */
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            margin: 30px auto; /* Centers it with spacing */
+            background: white; /* Crucial: Ensures white paper look */
+            border: 1px solid #d3d3d3; /* Gray border */
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1); /* Drop shadow for depth */
+            color: #000; /* Force black text */
+            font-family: 'Times New Roman', serif; /* Standard doc font */
+            font-size: 12pt;
+            overflow-wrap: break-word;
+            position: relative; /* Ensure it sits above background */
+            display: block; /* Ensure it's not hidden */
+        }
+
+        /* Print Overrides - Only changes what is needed for paper */
+        @media print {
+            body {
+                background: white;
+                margin: 0;
+            }
+            .page {
+                margin: 0;
+                border: none; /* No border on real paper */
+                box-shadow: none; /* No shadow on real paper */
+                width: 100%;
+                min-height: auto;
+                padding: 0; /* Let printer margins handle this or keep consistent */
+                position: static;
+            }
+            /* Hide UI elements */
+            .navbar, .sidebar, .btn, .no-print {
+                display: none !important;
+            }
+        }
+
+        /* Official Header Layout (Ensuring WYSIWYG on Screen) */
+        .official-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .header-left {
+            width: 20%;
+            text-align: left;
+        }
+
+        .header-center {
+            width: 60%;
+            text-align: center;
+        }
+
+        .header-right {
+            width: 20%;
+            text-align: right;
+        }
+
+        .header-center h1 {
+            margin: 0;
+            font-size: 16pt;
+            text-transform: uppercase;
+        }
+
+        .header-center h2 {
+            margin: 5px 0 0;
+            font-size: 12pt;
+            font-weight: normal;
         }
 
         .mode-selector {
@@ -479,7 +546,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
         </div>
 
         <!-- Wrapper for Print Preview Logic -->
-        <div class="page-preview page-a4 print-area">
+        <div class="page">
             <?php if (isset($_POST['include_header'])): ?>
                 <div class="official-header">
                     <div class="header-left">
