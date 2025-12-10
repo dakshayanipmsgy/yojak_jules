@@ -27,33 +27,38 @@ if (empty($prompt)) {
 // Fetch API Keys
 $configPath = 'system/global_config.json';
 $config = readJSON($configPath);
-$keys = $config['api_keys'] ?? [];
+$aiConfig = $config['ai_config'] ?? [];
 
 $apiKey = '';
+$model = '';
+
 if ($provider === 'openai') {
-    $apiKey = $keys['openai'] ?? '';
+    $apiKey = $aiConfig['openai']['key'] ?? '';
+    $model = $aiConfig['openai']['model'] ?? 'gpt-4o';
 } elseif ($provider === 'gemini') {
-    $apiKey = $keys['gemini'] ?? '';
+    $apiKey = $aiConfig['gemini']['key'] ?? '';
+    $model = $aiConfig['gemini']['model'] ?? 'gemini-1.5-flash';
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Invalid provider selected']);
     exit;
 }
 
 if (empty($apiKey)) {
-    echo json_encode(['status' => 'error', 'message' => 'Provider not configured.']);
+    echo json_encode(['status' => 'error', 'message' => 'Provider not configured (Missing API Key).']);
     exit;
 }
 
-$systemPrompt = "You are a government drafting assistant. Output strictly in HTML format (use <p>, <br>, <b>). Do not use Markdown backticks.";
+// Strict System Instruction
+$systemInstruction = "You are a professional government drafting assistant. Your goal is to write strict, precise, and formal documents. Do not be conversational. Do not use filler words. Output strictly in HTML format (using <p>, <br>, <b> lists). Do not use Markdown backticks.";
 
 if ($provider === 'openai') {
     // OpenAI Implementation
     $url = 'https://api.openai.com/v1/chat/completions';
 
     $data = [
-        'model' => 'gpt-3.5-turbo',
+        'model' => $model,
         'messages' => [
-            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'system', 'content' => $systemInstruction],
             ['role' => 'user', 'content' => $prompt]
         ],
         'temperature' => 0.7
@@ -88,20 +93,15 @@ if ($provider === 'openai') {
 
 } elseif ($provider === 'gemini') {
     // Gemini Implementation
-    $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' . $apiKey;
+    // Endpoint: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . $model . ':generateContent?key=' . $apiKey;
 
-    // Gemini requires a different structure
-    // We prepend the system instructions to the user prompt since Gemini Pro (standard) via generateContent
-    // often handles system instructions better as part of the prompt or using the new system_instruction field (beta).
-    // However, the prompt specifies: "contents": [{"parts": [{"text": "You are a government drafting assistant... " + $user_prompt}]}]
-
-    $combinedPrompt = $systemPrompt . "\n\nUser Request: " . $prompt;
-
+    // Payload
     $data = [
         'contents' => [
             [
                 'parts' => [
-                    ['text' => $combinedPrompt]
+                    ['text' => $systemInstruction . "\n\nTask: " . $prompt]
                 ]
             ]
         ]
@@ -131,7 +131,7 @@ if ($provider === 'openai') {
     }
 
     $result = json_decode($response, true);
-    // Parse response: candidates[0].content.parts[0].text
+    // Parse response
     $generatedText = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
 }
 
@@ -141,11 +141,9 @@ if (empty($generatedText)) {
 }
 
 // Clean up Markdown backticks if the model ignores instructions
-// Remove ```html ... ``` or just ``` ... ```
 $generatedText = preg_replace('/^```html\s*/i', '', $generatedText);
 $generatedText = preg_replace('/^```\s*/i', '', $generatedText);
 $generatedText = preg_replace('/\s*```$/', '', $generatedText);
-
 
 // Return Success
 echo json_encode(['status' => 'success', 'data' => $generatedText]);

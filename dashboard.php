@@ -19,24 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Superadmin Actions
     if ($isSuperadmin) {
-        if ($action === 'update_settings') {
-            $openaiKey = trim($_POST['openai_key'] ?? '');
-            $geminiKey = trim($_POST['gemini_key'] ?? '');
-            $configPath = 'system/global_config.json';
-            $config = readJSON($configPath);
-            if ($config) {
-                $config['api_keys']['openai'] = $openaiKey;
-                $config['api_keys']['gemini'] = $geminiKey;
-                if (writeJSON($configPath, $config)) {
-                    $message = "Settings updated successfully.";
-                } else {
-                    $error = "Failed to save settings.";
-                }
-            } else {
-                $error = "Configuration file not found.";
-            }
-        }
-        elseif ($action === 'create_department') {
+        if ($action === 'create_department') {
             $deptName = trim($_POST['dept_name'] ?? '');
             $newDeptId = trim($_POST['dept_id'] ?? '');
             $adminPassword = $_POST['admin_password'] ?? '';
@@ -258,7 +241,7 @@ if (!empty($inbox)) {
                     </div>
                     <div style="display: flex; gap: 1rem;">
                         <a href="admin_templates.php" class="btn-primary">Manage Global Templates</a>
-                        <button id="showSettingsBtn" class="btn-secondary">AI Configuration</button>
+                        <a href="admin_settings.php" class="btn-secondary">AI Configuration</a>
                     </div>
                 </section>
 
@@ -416,31 +399,6 @@ if (!empty($inbox)) {
                         </div>
                     </div>
                 </section>
-
-                <div id="settingsModal" class="modal">
-                    <div class="modal-content">
-                        <span class="close-btn" id="closeSettings">&times;</span>
-                        <h2>System Settings</h2>
-                        <form method="POST" action="">
-                            <input type="hidden" name="action" value="update_settings">
-                            <?php
-                                $gConfig = readJSON('system/global_config.json');
-                                $keys = $gConfig['api_keys'] ?? ['openai' => '', 'gemini' => ''];
-                            ?>
-                            <div class="form-group">
-                                <label for="openai_key">OpenAI API Key</label>
-                                <input type="password" id="openai_key" name="openai_key" value="<?php echo htmlspecialchars($keys['openai'] ?? ''); ?>" placeholder="sk-..." style="width: 100%; padding: 0.5rem;">
-                            </div>
-                            <div class="form-group">
-                                <label for="gemini_key">Google Gemini API Key</label>
-                                <input type="password" id="gemini_key" name="gemini_key" value="<?php echo htmlspecialchars($keys['gemini'] ?? ''); ?>" placeholder="AI..." style="width: 100%; padding: 0.5rem;">
-                            </div>
-                            <div class="form-actions">
-                                <button type="submit" class="btn-primary">Save Settings</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
 
                 <div id="createDepartmentModal" class="modal">
                     <div class="modal-content">
@@ -721,18 +679,8 @@ if (!empty($inbox)) {
             if (saCloseCreate) saCloseCreate.onclick = function() { saModal.style.display = "none"; }
         }
 
-        var setModal = document.getElementById("settingsModal");
-        var setBtn = document.getElementById("showSettingsBtn");
-        var setClose = document.getElementById("closeSettings");
-
-        if (setModal && setBtn) {
-            setBtn.onclick = function() { setModal.style.display = "block"; }
-            if (setClose) setClose.onclick = function() { setModal.style.display = "none"; }
-        }
-
         window.onclick = function(event) {
             if (event.target == saModal) saModal.style.display = "none";
-            if (event.target == setModal) setModal.style.display = "none";
         }
 
         function showTab(tabId, tabElement) {
