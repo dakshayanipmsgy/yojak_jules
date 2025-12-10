@@ -16,6 +16,17 @@ if (!preg_match('/^[a-zA-Z0-9_]+$/', $deptId)) {
     exit;
 }
 
+// Special case for Superadmin
+if ($deptId === 'superadmin') {
+    echo json_encode([
+        [
+            'id' => 'super_role',
+            'name' => '⚡ System Superadmin'
+        ]
+    ]);
+    exit;
+}
+
 $deptPath = STORAGE_PATH . '/departments/' . $deptId;
 if (!is_dir($deptPath)) {
     echo json_encode(['error' => 'Department not found']);

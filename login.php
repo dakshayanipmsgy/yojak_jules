@@ -13,23 +13,28 @@ $userId = $_POST['user_id'] ?? '';
 $password = $_POST['password'] ?? '';
 
 // Superadmin Login Check
-if ($userId === 'admin' && empty($deptId)) {
+if ($deptId === 'superadmin') {
     $config = readJSON('system/global_config.json');
-    if ($config && isset($config['username']) && $config['username'] === 'admin') {
-        if (password_verify($password, $config['password_hash'])) {
-            $_SESSION['user_id'] = 'admin';
-            $_SESSION['role_id'] = 'superadmin';
-            $_SESSION['dept_id'] = null;
-            header('Location: dashboard.php');
-            exit;
-        } else {
-            // Use header with query param for error display on index.php
-            header('Location: index.php?error=Incorrect+Password');
-            exit;
-        }
+
+    // Check if configuration is valid and user ID matches
+    $validUser = ($config && isset($config['username']) && $config['username'] === $userId);
+
+    if (!$validUser) {
+        header('Location: index.php?error=Invalid+Superadmin+User');
+        exit;
     }
-    header('Location: index.php?error=Superadmin+configuration+missing');
-    exit;
+
+    if (password_verify($password, $config['password_hash'])) {
+        $_SESSION['user_id'] = $config['username'];
+        $_SESSION['role_id'] = 'superadmin';
+        $_SESSION['dept_id'] = 'superadmin';
+
+        header('Location: dashboard.php');
+        exit;
+    } else {
+        header('Location: index.php?error=Incorrect+Password');
+        exit;
+    }
 }
 
 // Department User Login Logic
