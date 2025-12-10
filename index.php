@@ -43,8 +43,11 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
         <form id="loginForm" method="POST" action="login.php">
             <!-- Box 1: Department ID -->
             <div class="form-group">
-                <label for="dept_id">Department ID</label>
-                <input type="text" id="dept_id" name="dept_id" placeholder="Enter Department ID (e.g. dws)" required autocomplete="off">
+                <label for="dept_id_search">Department ID</label>
+                <!-- Anti-Autofill Hack: readonly initially, removed on focus -->
+                <input type="text" id="dept_id_search" name="dept_id"
+                       placeholder="Enter Department ID (e.g. dws)"
+                       required autocomplete="off" readonly onfocus="this.removeAttribute('readonly');">
             </div>
 
             <!-- Box 2: Role (Initially Hidden) -->
@@ -57,8 +60,8 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
 
             <!-- Box 3: User ID (Initially Hidden) -->
             <div class="form-group hidden" id="user_group">
-                <label for="user_id">User ID</label>
-                <input type="text" id="user_id" name="user_id" placeholder="Enter User ID (e.g. anish)" required>
+                <label for="user_id">User ID (Prefix Only)</label>
+                <input type="text" id="user_id" name="user_id" placeholder="e.g., For 'anish.admin.dws', just type 'anish'" required>
             </div>
 
             <!-- Box 4: Password (Initially Hidden) -->
@@ -82,7 +85,7 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const deptInput = document.getElementById('dept_id');
+            const deptInput = document.getElementById('dept_id_search');
             const roleSelect = document.getElementById('role_id');
             const roleGroup = document.getElementById('role_group');
             const userGroup = document.getElementById('user_group');
@@ -104,26 +107,9 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
                 resetFields();
 
                 if (deptId === '') {
-                    // If empty, assume maybe superadmin wants to login or just empty
-                    // But superadmin login usually doesn't have a dept ID.
-                    // The prompt says "Box 1: Department ID (User types dws)".
-                    // If the user wants superadmin, they might type nothing or handle it differently.
-                    // Wait, existing index.php handled superadmin by checking if userId is admin and deptId is empty.
-                    // In this new flow, if I leave Dept ID empty, I can't proceed?
-                    // The prompt says "Step 1: Input Field 'Department ID'".
-                    // Let's assume for superadmin, maybe they type 'admin' or leave it blank?
-                    // The prompt doesn't specify superadmin flow in the new design.
-                    // However, I should probably allow a way.
-                    // If I leave Dept ID empty, I can't trigger the blur event effectively to show other fields if they depend on it.
-                    // Let's look at the old code: "placeholder='Enter Department ID (Leave empty for Superadmin)'"
-                    // So if it's empty, maybe we show User ID and Password directly?
-                    if (deptId === '') {
-                         // Show User ID and Password for potential Superadmin login
-                         userGroup.classList.remove('hidden');
-                         passwordGroup.classList.remove('hidden');
-                         superadminNotice.classList.remove('hidden');
-                         return;
-                    }
+                     // Show User ID and Password for potential Superadmin login
+                     // (Though mostly we expect deptId 'superadmin' which returns a role)
+                     return;
                 }
 
                 if (deptId) {
@@ -131,9 +117,7 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
                         .then(response => response.json())
                         .then(data => {
                             if (data.error) {
-                                // If error (e.g. dept not found), just show user/pass so they can try or correct it?
-                                // Or show error? Prompt says "Step 2: Dropdown... Populate with results".
-                                // If dept is invalid, maybe we shouldn't show the role dropdown.
+                                // If error (e.g. dept not found), show message
                                 alert(data.error);
                             } else if (data.length > 0) {
                                 roleSelect.innerHTML = '<option value="">Select Role</option>';
