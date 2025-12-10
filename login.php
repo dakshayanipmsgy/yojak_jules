@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $deptId = $_POST['dept_id'] ?? '';
 $roleId = $_POST['role_id'] ?? '';
-$userId = $_POST['user_id'] ?? '';
+$userIdInput = $_POST['user_id'] ?? ''; // Renamed to userIdInput to distinguish from resolved userId
 $password = $_POST['password'] ?? '';
 
 // Superadmin Login Check
@@ -17,7 +17,8 @@ if ($deptId === 'superadmin') {
     $config = readJSON('system/global_config.json');
 
     // Check if configuration is valid and user ID matches
-    $validUser = ($config && isset($config['username']) && $config['username'] === $userId);
+    // Use input directly for superadmin
+    $validUser = ($config && isset($config['username']) && $config['username'] === $userIdInput);
 
     if (!$validUser) {
         header('Location: index.php?error=Invalid+Superadmin+User');
@@ -64,14 +65,30 @@ if (empty($users)) {
     exit;
 }
 
-// Step C: Find the User (Key-based lookup)
-if (!isset($users[$userId])) {
+// Step C: Find the User (Smart Reconstruction Logic)
+$finalUserId = null;
+$userData = null;
+
+// Construct potential ID (Prefix + Role)
+$constructedId = $userIdInput . '.' . $roleId;
+
+if (isset($users[$constructedId])) {
+    // Attempt 2: Constructed ID exists
+    $finalUserId = $constructedId;
+    $userData = $users[$constructedId];
+} elseif (isset($users[$userIdInput])) {
+    // Attempt 1: Input matches existing ID directly (e.g. custom ID)
+    $finalUserId = $userIdInput;
+    $userData = $users[$userIdInput];
+} else {
+    // Neither found
     header('Location: index.php?error=User+ID+not+found');
     exit;
 }
-$userData = $users[$userId];
 
 // Check Role Match
+// Note: If we found via constructed ID, role match is implicit but good to verify.
+// If found via direct ID, we must check if the user actually holds the selected role.
 if ($userData['role'] !== $roleId) {
     header('Location: index.php?error=User+exists+but+does+not+hold+the+selected+Role');
     exit;
@@ -87,7 +104,7 @@ if (isset($userData['status']) && $userData['status'] !== 'active') {
 // Step E: Verify Password
 if (password_verify($password, $userData['password'])) {
     // Success: Start Session, set variables
-    $_SESSION['user_id'] = $userId;
+    $_SESSION['user_id'] = $finalUserId;
     $_SESSION['dept_id'] = $deptId;
     $_SESSION['role_id'] = $userData['role'];
 
