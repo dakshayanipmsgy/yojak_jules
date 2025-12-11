@@ -21,16 +21,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $contractors = readJSON($contractorsPath) ?? [];
 
     if ($action === 'create' || $action === 'update') {
-        $id = $_POST['id'] ?? uniqid('con_');
         $name = trim($_POST['name']);
         $address = trim($_POST['address']);
         $pan = trim($_POST['pan']);
         $gst = trim($_POST['gst']);
         $mobile = trim($_POST['mobile']);
 
-        if (empty($name) || empty($mobile)) {
-            $error = "Name and Mobile are required.";
+        if ($action === 'create') {
+            // Generate Unique ID CON-YYYY-XXXX
+            $year = date('Y');
+            $prefix = "CON-$year-";
+            $maxNum = 0;
+
+            foreach ($contractors as $k => $v) {
+                if (strpos($k, $prefix) === 0) {
+                    $numStr = substr($k, strlen($prefix));
+                    if (is_numeric($numStr)) {
+                        $num = (int)$numStr;
+                        if ($num > $maxNum) $maxNum = $num;
+                    }
+                }
+            }
+
+            $nextNum = $maxNum + 1;
+            $id = $prefix . str_pad($nextNum, 4, '0', STR_PAD_LEFT); // e.g., CON-2025-0001
         } else {
+            // Update existing
+            $id = $_POST['id'] ?? '';
+            if (empty($id) || !isset($contractors[$id])) {
+                $error = "Invalid Contractor ID.";
+            }
+        }
+
+        if (!$error && (empty($name) || empty($mobile))) {
+            $error = "Name and Mobile are required.";
+        }
+
+        if (!$error) {
             $contractors[$id] = [
                 'id' => $id,
                 'name' => $name,
@@ -142,9 +169,13 @@ if (isset($_GET['edit'])) {
         </div>
 
         <div class="contractor-list">
-            <table class="data-table">
+            <div style="padding: 10px; border-bottom: 1px solid #eee;">
+                <input type="text" id="contractorSearch" placeholder="Search by ID or Name..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <table class="data-table" id="contractorTable">
                 <thead>
                     <tr>
+                        <th>ID</th>
                         <th>Name</th>
                         <th>Mobile</th>
                         <th>GST / PAN</th>
@@ -154,10 +185,11 @@ if (isset($_GET['edit'])) {
                 </thead>
                 <tbody>
                     <?php if (empty($contractors)): ?>
-                        <tr><td colspan="5" class="text-center">No contractors found.</td></tr>
+                        <tr><td colspan="6" class="text-center">No contractors found.</td></tr>
                     <?php else: ?>
                         <?php foreach ($contractors as $c): ?>
                             <tr>
+                                <td><strong><?php echo htmlspecialchars($c['id']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($c['name']); ?></td>
                                 <td><?php echo htmlspecialchars($c['mobile']); ?></td>
                                 <td>
@@ -180,5 +212,32 @@ if (isset($_GET['edit'])) {
             </table>
         </div>
     </div>
+
+    <script>
+        document.getElementById('contractorSearch').addEventListener('keyup', function() {
+            var input, filter, table, tr, td, i, txtValue;
+            input = document.getElementById("contractorSearch");
+            filter = input.value.toUpperCase();
+            table = document.getElementById("contractorTable");
+            tr = table.getElementsByTagName("tr");
+
+            for (i = 1; i < tr.length; i++) {
+                // Check ID (col 0) and Name (col 1)
+                var tdId = tr[i].getElementsByTagName("td")[0];
+                var tdName = tr[i].getElementsByTagName("td")[1];
+
+                if (tdId || tdName) {
+                    var txtId = tdId.textContent || tdId.innerText;
+                    var txtName = tdName.textContent || tdName.innerText;
+
+                    if (txtId.toUpperCase().indexOf(filter) > -1 || txtName.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = "";
+                    } else {
+                        tr[i].style.display = "none";
+                    }
+                }
+            }
+        });
+    </script>
 </body>
 </html>
