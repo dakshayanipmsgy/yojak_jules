@@ -52,6 +52,10 @@ if ($editDocId) {
     }
 }
 
+// Handle Pre-fill from URL (e.g. from Tender Module)
+$preFillContractorId = $_GET['contractor_id'] ?? '';
+$preFillTemplateId = $_GET['template'] ?? '';
+
 // Handle Generation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     $templateId = $_POST['template_id'] ?? '';
@@ -399,7 +403,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                         <select name="contractor_id">
                             <option value="">-- Choose Contractor --</option>
                             <?php foreach ($contractors as $c): ?>
-                                <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?> (<?php echo htmlspecialchars($c['mobile']); ?>)</option>
+                                <?php
+                                $selected = ($preFillContractorId === $c['id']) ? 'selected' : '';
+                                ?>
+                                <option value="<?php echo $c['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($c['name']); ?> (<?php echo htmlspecialchars($c['mobile']); ?>)</option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -472,6 +479,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                                 $selected = '';
                                 if (isset($_POST['template_id']) && $_POST['template_id'] == $t['id']) $selected = 'selected';
                                 elseif ($editDoc && isset($editDoc['template_id']) && $editDoc['template_id'] == $t['id']) $selected = 'selected';
+                                elseif ($preFillTemplateId && ($t['id'] == $preFillTemplateId || stripos($t['id'], $preFillTemplateId) !== false)) $selected = 'selected';
                             ?>
                                 <option value="<?php echo $t['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($t['display_title']); ?></option>
                             <?php endforeach; ?>

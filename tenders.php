@@ -1,0 +1,177 @@
+<?php
+require_once 'auth_check.php';
+require_once 'functions.php';
+
+$deptId = $_SESSION['dept_id'];
+$tendersPath = 'departments/' . $deptId . '/data/tenders.json';
+
+// Initialize Tenders Data if not exists
+$tenders = readJSON($tendersPath);
+if ($tenders === null) {
+    $tenders = [];
+    // Ensure directory exists
+    // writeJSON creates dirs
+    writeJSON($tendersPath, []);
+}
+
+$message = '';
+$error = '';
+
+// Handle Create New Tender
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_tender'])) {
+    $title = trim($_POST['title'] ?? '');
+    $description = trim($_POST['description'] ?? '');
+
+    if (empty($title)) {
+        $error = "Title is required.";
+    } else {
+        // Generate ID: TND/YYYY/XX
+        $year = date('Y');
+        $count = 0;
+        foreach ($tenders as $t) {
+            if (strpos($t['tender_id'], "TND/$year/") === 0) {
+                $count++;
+            }
+        }
+        $nextNum = $count + 1;
+        $tenderId = "TND/$year/" . sprintf('%02d', $nextNum);
+
+        $newTender = [
+            'tender_id' => $tenderId,
+            'title' => $title,
+            'description' => $description,
+            'participants' => [],
+            'created_at' => date('Y-m-d H:i:s'),
+            'status' => 'Open',
+            'created_by' => $_SESSION['user_id']
+        ];
+
+        // Key by ID for easy access
+        $tenders[$tenderId] = $newTender;
+
+        if (writeJSON($tendersPath, $tenders)) {
+            $message = "Tender created successfully: $tenderId";
+        } else {
+            $error = "Failed to save tender.";
+        }
+    }
+}
+
+// Prepare list for display (Sort by ID desc)
+$tenderList = array_values($tenders);
+usort($tenderList, function($a, $b) {
+    return strcmp($b['tender_id'], $a['tender_id']);
+});
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tender Dashboard - Yojak</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .tender-card {
+            background: white;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .tender-info h3 {
+            margin: 0 0 5px 0;
+            color: #2c3e50;
+        }
+        .tender-meta {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-open { background: #e3fcef; color: #006644; }
+        .status-closed { background: #dfe1e6; color: #42526e; }
+
+        .create-panel {
+            background: white;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <?php include 'navbar.php'; ?>
+
+    <div class="dashboard-header">
+        <div class="header-left">
+            <h1>Tender Management</h1>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <?php if ($message): ?>
+            <div class="success-message"><?php echo htmlspecialchars($message); ?></div>
+        <?php endif; ?>
+        <?php if ($error): ?>
+            <div class="error-message"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
+
+        <!-- Create New Tender -->
+        <div class="create-panel">
+            <h2>Create New Tender</h2>
+            <form method="POST" action="">
+                <input type="hidden" name="create_tender" value="1">
+                <div class="form-group">
+                    <label>Tender Title</label>
+                    <input type="text" name="title" required placeholder="e.g. Road Repair Zone 4">
+                </div>
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <textarea name="description" rows="2" placeholder="Brief description of the work..."></textarea>
+                </div>
+                <button type="submit" class="btn-primary">Create Tender</button>
+            </form>
+        </div>
+
+        <!-- Tender List -->
+        <h2>Active Tenders</h2>
+        <?php if (empty($tenderList)): ?>
+            <p>No tenders found.</p>
+        <?php else: ?>
+            <?php foreach ($tenderList as $t): ?>
+                <div class="tender-card">
+                    <div class="tender-info">
+                        <h3><?php echo htmlspecialchars($t['title']); ?> <small>(<?php echo htmlspecialchars($t['tender_id']); ?>)</small></h3>
+                        <div class="tender-meta">
+                            Participants: <?php echo count($t['participants']); ?> |
+                            Created: <?php echo htmlspecialchars($t['created_at']); ?>
+                        </div>
+                    </div>
+                    <div class="tender-actions" style="text-align: right;">
+                        <span class="status-badge <?php echo $t['status'] === 'Open' ? 'status-open' : 'status-closed'; ?>">
+                            <?php echo htmlspecialchars($t['status']); ?>
+                        </span>
+                        <br><br>
+                        <a href="view_tender.php?id=<?php echo urlencode($t['tender_id']); ?>" class="btn-secondary">View Details</a>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</body>
+</html>
