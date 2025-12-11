@@ -254,9 +254,7 @@ usort($documents, function($a, $b) {
         </div>
 
         <div class="add-doc-wrapper">
-            <!-- Link to document creator (to be implemented/updated in next prompt) -->
-            <!-- We will assume create_document.php needs to know about the file_id -->
-            <a href="create_document.php?file_id=<?php echo $fileId; ?>" class="add-doc-btn">+ Add New Document</a>
+            <a href="add_document.php?file_id=<?php echo $fileId; ?>" class="add-doc-btn">+ Add New Document</a>
         </div>
 
         <h3>Documents Timeline</h3>
@@ -274,7 +272,11 @@ usort($documents, function($a, $b) {
                             <div class="doc-title">
                                 <?php echo htmlspecialchars($doc['title'] ?? 'Untitled'); ?>
                             </div>
-                            <a href="view_document.php?file_id=<?php echo $fileId; ?>&doc_id=<?php echo basename($doc['filename'], '.json'); ?>" class="view-doc-btn">View Document</a>
+                            <?php if (($doc['status'] ?? 'draft') === 'draft'): ?>
+                                <a href="add_document.php?file_id=<?php echo $fileId; ?>&doc_id=<?php echo basename($doc['filename'], '.json'); ?>" class="view-doc-btn">Edit Draft</a>
+                            <?php else: ?>
+                                <a href="add_document.php?file_id=<?php echo $fileId; ?>&doc_id=<?php echo basename($doc['filename'], '.json'); ?>" class="view-doc-btn">View Document</a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php endforeach; ?>
