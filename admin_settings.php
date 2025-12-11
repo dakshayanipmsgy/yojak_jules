@@ -125,7 +125,10 @@ $hasGeminiKey = !empty($aiConfig['gemini']['key']);
                 <h4>OpenAI (ChatGPT)</h4>
                 <div class="form-group">
                     <label for="openai_key">API Key</label>
-                    <input type="password" id="openai_key" name="openai_key" value="" placeholder="<?php echo $hasOpenAIKey ? 'Leave empty to keep current key' : 'Enter API Key (sk-...)'; ?>">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="password" id="openai_key" name="openai_key" value="" placeholder="<?php echo $hasOpenAIKey ? 'Leave empty to keep current key' : 'Enter API Key (sk-...)'; ?>" style="flex:1;">
+                        <button type="button" class="btn-small" onclick="testConnection('openai')">Test Connection</button>
+                    </div>
                     <?php if ($hasOpenAIKey): ?>
                         <span class="key-status status-set">✓ Key is currently set</span>
                     <?php else: ?>
@@ -142,7 +145,10 @@ $hasGeminiKey = !empty($aiConfig['gemini']['key']);
                 <h4>Google Gemini</h4>
                 <div class="form-group">
                     <label for="gemini_key">API Key</label>
-                    <input type="password" id="gemini_key" name="gemini_key" value="" placeholder="<?php echo $hasGeminiKey ? 'Leave empty to keep current key' : 'Enter API Key'; ?>">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="password" id="gemini_key" name="gemini_key" value="" placeholder="<?php echo $hasGeminiKey ? 'Leave empty to keep current key' : 'Enter API Key'; ?>" style="flex:1;">
+                        <button type="button" class="btn-small" onclick="testConnection('gemini')">Test Connection</button>
+                    </div>
                      <?php if ($hasGeminiKey): ?>
                         <span class="key-status status-set">✓ Key is currently set</span>
                     <?php else: ?>
@@ -160,6 +166,46 @@ $hasGeminiKey = !empty($aiConfig['gemini']['key']);
             </div>
         </form>
     </div>
+
+    <script>
+        function testConnection(provider) {
+            const keyInput = document.getElementById(provider + '_key');
+            const modelInput = document.getElementById(provider + '_model');
+            const key = keyInput ? keyInput.value : '';
+            const model = modelInput ? modelInput.value : '';
+
+            // Visual feedback
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = 'Testing...';
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('provider', provider);
+            formData.append('key', key);
+            formData.append('model', model);
+
+            fetch('ai_test.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('✅ ' + data.message);
+                } else {
+                    alert('❌ ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('❌ Network or Server Error: ' + error);
+            })
+            .finally(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            });
+        }
+    </script>
 
 </body>
 </html>
