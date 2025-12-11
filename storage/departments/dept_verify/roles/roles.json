@@ -1,0 +1,6 @@
+{
+    "admin.dept_verify": {
+        "name": "Department Administrator",
+        "permissions": "all"
+    }
+}

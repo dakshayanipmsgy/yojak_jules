@@ -266,7 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type'])) {
                     'id' => uniqid('NOTIF_'),
                     'user_id' => $t['user'],
                     'message' => "New Dak from File $fileId: $title",
-                    'link' => 'dak_service.php',
+                    'link' => 'dak_register.php',
                     'read' => false,
                     'time' => date('Y-m-d H:i:s')
                 ];

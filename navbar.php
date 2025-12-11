@@ -33,6 +33,7 @@ if (!$isSuperadmin && $deptId) {
         <?php else: ?>
             <a href="dashboard.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>">Dashboard</a>
             <a href="file_manager.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'file_manager.php' ? 'active' : ''; ?>">File Manager</a>
+            <a href="dak_register.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'dak_register.php' ? 'active' : ''; ?>">Dak Register</a>
 
             <?php if ($isAdmin): ?>
                 <a href="manage_contractors.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'manage_contractors.php' ? 'active' : ''; ?>">Contractors</a>

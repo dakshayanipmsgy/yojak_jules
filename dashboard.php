@@ -559,7 +559,7 @@ if (!empty($inbox)) {
                                 </li>
                                 <li>
                                     <strong>Dak Register</strong>
-                                    <a href="dak_service.php" class="btn-small">Open Register</a>
+                                    <a href="dak_register.php" class="btn-small">Open Register</a>
                                 </li>
                                 <li>
                                     <strong>Governance Requests</strong>
