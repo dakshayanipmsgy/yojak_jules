@@ -89,5 +89,25 @@ if ($action === 'get_users') {
     exit;
 }
 
+if ($action === 'get_contractor') {
+    $id = $_GET['id'] ?? '';
+    $deptId = $_SESSION['dept_id'];
+
+    // Read contractors
+    $contractors = readJSON('departments/' . $deptId . '/data/contractors.json');
+    if ($contractors && isset($contractors[$id])) {
+        echo json_encode([
+            'status' => 'success',
+            'data' => [
+                'name' => $contractors[$id]['name'],
+                'mobile' => $contractors[$id]['mobile']
+            ]
+        ]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Contractor not found']);
+    }
+    exit;
+}
+
 echo json_encode(['status' => 'error', 'message' => 'Invalid action']);
 ?>

@@ -35,6 +35,7 @@ if (!$isSuperadmin && $deptId) {
             <a href="file_manager.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'file_manager.php' ? 'active' : ''; ?>">File Manager</a>
             <a href="dak_register.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'dak_register.php' ? 'active' : ''; ?>">Dak Register</a>
 
+            <a href="tenders.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'tenders.php' ? 'active' : ''; ?>">Tenders</a>
             <?php if ($isAdmin): ?>
                 <a href="manage_contractors.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'manage_contractors.php' ? 'active' : ''; ?>">Contractors</a>
                 <a href="manage_templates.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'manage_templates.php' ? 'active' : ''; ?>">Templates</a>
