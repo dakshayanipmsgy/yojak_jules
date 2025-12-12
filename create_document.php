@@ -56,14 +56,82 @@ if ($editDocId) {
 $preFillContractorId = $_GET['contractor_id'] ?? '';
 $preFillTemplateId = $_GET['template'] ?? '';
 
+// Handle Context from URL
+$context = $_GET['context'] ?? '';
+$contextId = $_GET['id'] ?? '';
+// These variables will be used to prepopulate the form or hold state
+$contextData = [];
+$woData = null;
+$tenderData = null;
+$contractorData = null;
+
+if ($context === 'work_order' && $contextId) {
+    // Load Work Orders
+    $allWOs = readJSON('departments/' . $deptId . '/data/work_orders.json') ?? [];
+    if (isset($allWOs[$contextId])) {
+        $woData = $allWOs[$contextId];
+
+        // Load Contractor
+        if (!empty($woData['contractor_id'])) {
+            if (isset($contractors[$woData['contractor_id']])) {
+                $contractorData = $contractors[$woData['contractor_id']];
+                $preFillContractorId = $woData['contractor_id']; // Pre-select in dropdown
+            }
+        }
+
+        // Load Tender
+        if (!empty($woData['tender_id'])) {
+            $allTenders = readJSON('departments/' . $deptId . '/data/tenders.json') ?? [];
+            if (isset($allTenders[$woData['tender_id']])) {
+                $tenderData = $allTenders[$woData['tender_id']];
+            }
+        }
+    }
+}
+
+// Fetch Settings for Letter No
+$deptSettings = readJSON('departments/' . $deptId . '/data/settings.json') ?? [];
+$letterPrefix = $deptSettings['doc_prefix'] ?? 'LTR';
+$letterCounter = $deptSettings['doc_counter'] ?? 1;
+// Format: PREFIX-001 (or similar)
+$nextLetterNo = $letterPrefix . '-' . str_pad($letterCounter, 3, '0', STR_PAD_LEFT);
+
 // Handle Generation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     $templateId = $_POST['template_id'] ?? '';
     $recipientMode = $_POST['recipient_mode'] ?? 'contractor';
 
+    // Resolve Context again for POST
+    $context = $_POST['context'] ?? '';
+    $contextId = $_POST['context_id'] ?? '';
+    $woData = null;
+    $tenderData = null;
+    $contractorData = null;
+
+    if ($context === 'work_order' && $contextId) {
+        $allWOs = readJSON('departments/' . $deptId . '/data/work_orders.json') ?? [];
+        if (isset($allWOs[$contextId])) {
+            $woData = $allWOs[$contextId];
+             // Load Contractor
+            if (!empty($woData['contractor_id'])) {
+                if (isset($contractors[$woData['contractor_id']])) {
+                    $contractorData = $contractors[$woData['contractor_id']];
+                }
+            }
+            // Load Tender
+            if (!empty($woData['tender_id'])) {
+                $allTenders = readJSON('departments/' . $deptId . '/data/tenders.json') ?? [];
+                if (isset($allTenders[$woData['tender_id']])) {
+                    $tenderData = $allTenders[$woData['tender_id']];
+                }
+            }
+        }
+    }
+
     // Resolve Recipient Info
     $recipientName = '';
     $recipientAddress = '';
+    $recipientId = '';
 
     // Validation
     $validSelection = false;
@@ -74,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
             $c = $contractors[$contractorId];
             $recipientName = $c['name'];
             $recipientAddress = $c['address'];
+            $recipientId = $c['id']; // Map ID
             $validSelection = true;
         }
     } elseif ($recipientMode === 'internal') {
@@ -151,6 +220,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                     '{{current_date}}' => date('d-m-Y')
                 ];
 
+                if ($recipientId) {
+                    $replacements['{{recipient_id}}'] = $recipientId;
+                }
+
+                // Map Context Variables
+                if ($woData) {
+                     $replacements['{{work_name}}'] = $woData['work_name'] ?? '';
+                     $replacements['{{agreed_amount}}'] = $woData['agreed_amount'] ?? '';
+                     $replacements['{{completion_time}}'] = $woData['completion_time'] ?? '';
+                } else {
+                    // Blank them out if not found to avoid placeholders showing
+                    $replacements['{{work_name}}'] = '';
+                    $replacements['{{agreed_amount}}'] = '';
+                    $replacements['{{completion_time}}'] = '';
+                }
+
+                if ($tenderData) {
+                     $replacements['{{estimated_cost}}'] = $tenderData['estimated_cost'] ?? '';
+                     $replacements['{{tender_id}}'] = $tenderData['id'] ?? '';
+                     $replacements['{{tender_date}}'] = $tenderData['created_at'] ?? '';
+                } else {
+                    $replacements['{{estimated_cost}}'] = '';
+                    $replacements['{{tender_id}}'] = '';
+                    $replacements['{{tender_date}}'] = '';
+                }
+
                 // Department name replacement
                 $deptMeta = getDepartment($deptId);
                 $replacements['{{department_name}}'] = $deptMeta['name'] ?? 'Department';
@@ -164,6 +259,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                     $replacements['{{dak_ref}}'] = htmlspecialchars($dakRef);
                     $replacements['{{dak_sender}}'] = htmlspecialchars($dakSender);
                     $replacements['{{dak_subject}}'] = htmlspecialchars($dakSubject);
+                }
+
+                // Ref Number
+                $refNumber = $_POST['ref_number'] ?? '';
+                if ($refNumber) {
+                    $replacements['{{ref_number}}'] = htmlspecialchars($refNumber);
                 }
 
                 $generatedHtml = str_replace(array_keys($replacements), array_values($replacements), $content);
@@ -234,6 +335,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                 'to' => $userId,
                 'time' => date('Y-m-d H:i:s')
             ];
+
+            // Increment Letter Counter if needed
+            // Only increment if we are saving a NEW document
+            // Double check strict check against existing doc ID
+            if (empty($existingDocId)) {
+                $settingsPath = 'departments/' . $deptId . '/data/settings.json';
+                $settings = readJSON($settingsPath);
+                if ($settings && isset($settings['doc_counter'])) {
+                     $settings['doc_counter'] = (int)$settings['doc_counter'] + 1;
+                     writeJSON($settingsPath, $settings);
+                }
+            }
         }
 
         if (saveDocument($deptId, $docId, $docData)) {
@@ -382,9 +495,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
             <form method="POST" action="" id="generateForm">
                 <input type="hidden" name="generate" value="1">
                 <input type="hidden" name="custom_content" id="custom_content_field" value="">
+                <input type="hidden" name="context" value="<?php echo htmlspecialchars($context); ?>">
+                <input type="hidden" name="context_id" value="<?php echo htmlspecialchars($contextId); ?>">
+
                 <?php if ($editDocId): ?>
                     <input type="hidden" name="existing_doc_id" value="<?php echo htmlspecialchars($editDocId); ?>">
                 <?php endif; ?>
+
+                <div class="form-group" style="background:#f9f9f9; padding:10px; border:1px solid #ddd;">
+                    <label>Letter No (Auto-Generated):</label>
+                    <input type="text" name="ref_number" value="<?php echo htmlspecialchars($nextLetterNo); ?>" readonly style="background:#e9e9e9; cursor:not-allowed;">
+                    <small>This number will be reserved when you save the document.</small>
+                </div>
 
                 <div class="form-group">
                     <label>Recipient Mode</label>
@@ -496,6 +618,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                         Include Official Header?
                     </label>
                 </div>
+
+                <?php if ($context === 'work_order'): ?>
+                <div class="form-group">
+                    <p style="color:green; font-weight:bold;">Linked Work Order: <?php echo htmlspecialchars($contextId); ?></p>
+                </div>
+                <?php endif; ?>
 
                 <div class="form-actions">
                     <button type="submit" class="btn-primary"><?php echo $editDoc ? 'Update Preview' : 'Generate Document'; ?></button>
