@@ -3,6 +3,8 @@ session_start();
 require_once 'auth_check.php';
 require_once 'functions.php';
 
+enforceFeature('file_system');
+
 $deptId = $_SESSION['dept_id'];
 $userId = $_SESSION['user_id'];
 $userName = $userId; // Ideally we should fetch full name, but ID is fine for now

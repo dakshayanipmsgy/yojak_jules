@@ -2,6 +2,8 @@
 require_once 'auth_check.php';
 require_once 'functions.php';
 
+enforceFeature('ai_writer');
+
 header('Content-Type: application/json');
 
 // Ensure only authenticated users can access

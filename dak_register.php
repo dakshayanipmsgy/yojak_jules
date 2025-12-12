@@ -2,6 +2,8 @@
 require_once 'auth_check.php';
 require_once 'functions.php';
 
+enforceFeature('dak_register');
+
 if (!isset($_SESSION['dept_id'])) {
     header('Location: index.php');
     exit;
