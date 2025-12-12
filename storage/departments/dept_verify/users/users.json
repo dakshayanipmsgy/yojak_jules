@@ -1,8 +1,0 @@
-{
-    "verify_admin.admin.dept_verify": {
-        "password": "$2y$10$\/DjoHmkChTNDEHBbg7uXU.XLaRFmrwsWJDJCdZL\/jPpOci5Aeb4T.",
-        "role": "admin.dept_verify",
-        "full_name": "Administrator",
-        "status": "active"
-    }
-}
