@@ -1,7 +1,19 @@
-To: {{recipient_name}}, {{recipient_address}}.
-
-
-<b>Subject: Work Order for [Project Name]</b>.
-
-
-Sir, You are hereby awarded the contract for...
+<p style="text-align: center; font-weight: bold;">GOVERNMENT OF JHARKHAND</p>
+<p style="text-align: center; font-weight: bold;">OFFICE OF THE EXECUTIVE ENGINEER</p>
+<p style="text-align: center; font-weight: bold;">{{department_name}}</p>
+<hr>
+<p><strong>Letter No:</strong> {{ref_number}} <span style="float: right;"><strong>Date:</strong> {{current_date}}</span></p>
+<p><strong>To,</strong><br>{{recipient_name}}<br>{{recipient_address}}<br><strong>Contractor ID:</strong> {{recipient_id}}</p>
+<p><strong>Subject: Work Order for the work "{{work_name}}"</strong></p>
+<p><strong>Ref:</strong> Tender Notice No. {{tender_id}} dated {{tender_date}}</p>
+<p>Sir,</p>
+<p>With reference to the subject cited above, your tender for the work mentioned below has been accepted by the competent authority.</p>
+<table border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+<tr><td style="width: 40%;"><strong>Name of Work</strong></td><td>{{work_name}}</td></tr>
+<tr><td><strong>Estimated Cost</strong></td><td>Rs. {{estimated_cost}}</td></tr>
+<tr><td><strong>Agreed Amount</strong></td><td>Rs. {{agreed_amount}}</td></tr>
+<tr><td><strong>Time of Completion</strong></td><td>{{completion_time}} Months/Days</td></tr>
+</table>
+<p>You are hereby directed to attend this office within 7 days to sign the formal agreement and commence the work immediately under the supervision of the Assistant Engineer / Junior Engineer.</p>
+<p>Yours faithfully,</p>
+<br><br><p><strong>Executive Engineer</strong><br>{{department_name}}</p>

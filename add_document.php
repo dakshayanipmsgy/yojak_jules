@@ -334,6 +334,9 @@ $hasAI = !empty($aiConfig['openai']['key']) || !empty($aiConfig['gemini']['key']
                     <?php echo $generatedHtml ? 'Change Template / Setup' : 'Start / Select Template'; ?>
                 </button>
 
+                <button onclick="toggleRawText()" class="btn-secondary" title="Paste Raw Text">📝 Raw Text</button>
+                <button onclick="document.getElementById('cheatsheetModal').style.display='block'" class="btn-secondary" title="Available Variables">❓ Vars</button>
+
                 <?php if($hasAI && checkFeature('ai_writer')): ?>
                 <button onclick="document.getElementById('aiModal').style.display='block'" class="btn-secondary" style="background:#6f42c1; color:white;">✨ AI Draft</button>
                 <?php endif; ?>
@@ -344,7 +347,14 @@ $hasAI = !empty($aiConfig['openai']['key']) || !empty($aiConfig['gemini']['key']
         </div>
 
         <!-- Editor Area -->
-        <div class="editor-area">
+        <div class="editor-area" style="flex-direction: column; align-items: center;">
+            <div id="rawTextContainer" class="hidden" style="width: 210mm; background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 0 5px rgba(0,0,0,0.1);">
+                <h4>Paste Raw Text (WhatsApp/Email)</h4>
+                <textarea id="rawTextInput" style="width:100%; height:150px; margin-bottom:10px; padding:10px;" placeholder="Paste content here..."></textarea>
+                <button onclick="convertRawText()" class="btn-primary">Convert to Format</button>
+                <button onclick="toggleRawText()" class="btn-secondary">Cancel</button>
+            </div>
+
             <?php if ($generatedHtml): ?>
                 <div class="page" id="documentPage">
                     <div id="editableContent" contenteditable="<?php echo $isReadOnly ? 'false' : 'true'; ?>" style="outline:none; min-height: 200px;">
@@ -352,9 +362,15 @@ $hasAI = !empty($aiConfig['openai']['key']) || !empty($aiConfig['gemini']['key']
                     </div>
                 </div>
             <?php else: ?>
-                <div style="text-align:center; margin-top:50px; color:#666;">
+                <div id="emptyState" style="text-align:center; margin-top:50px; color:#666;">
                     <h3>No Document Content Yet</h3>
                     <p>Click "Start / Select Template" or "AI Draft" to begin.</p>
+                </div>
+                <!-- Hidden page for when we convert text on empty state -->
+                <div class="page hidden" id="documentPage">
+                    <div id="editableContent" contenteditable="<?php echo $isReadOnly ? 'false' : 'true'; ?>" style="outline:none; min-height: 200px;">
+                        <?php echo $generatedHtml; ?>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
@@ -512,7 +528,84 @@ $hasAI = !empty($aiConfig['openai']['key']) || !empty($aiConfig['gemini']['key']
         </div>
     </div>
 
+    <!-- Cheatsheet Modal -->
+    <div id="cheatsheetModal" class="modal">
+        <div class="modal-content" style="width: 600px;">
+            <span class="close" onclick="document.getElementById('cheatsheetModal').style.display='none'">&times;</span>
+            <h2>Available Variables</h2>
+            <p>Copy these placeholders into your document template.</p>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <tr style="background: #f8f9fa;"><th>Variable</th><th>Description</th></tr>
+                    <tr><td>{{recipient_name}}</td><td>Name of the recipient/contractor</td></tr>
+                    <tr><td>{{recipient_address}}</td><td>Address of the recipient</td></tr>
+                    <tr><td>{{recipient_id}}</td><td>Contractor ID / User ID</td></tr>
+                    <tr><td>{{current_date}}</td><td>Today's Date (dd-mm-yyyy)</td></tr>
+                    <tr><td>{{department_name}}</td><td>Your Department Name</td></tr>
+                    <tr><td>{{ref_number}}</td><td>Reference/Memo Number</td></tr>
+                    <tr><td>{{work_name}}</td><td>Name of the Work (Tender/Scheme)</td></tr>
+                    <tr><td>{{tender_id}}</td><td>Tender Notice Number</td></tr>
+                    <tr><td>{{tender_date}}</td><td>Tender Date</td></tr>
+                    <tr><td>{{estimated_cost}}</td><td>Estimated Cost Amount</td></tr>
+                    <tr><td>{{agreed_amount}}</td><td>Agreed Contract Amount</td></tr>
+                    <tr><td>{{completion_time}}</td><td>Time for Completion</td></tr>
+                    <tr><td>{{sanction_amount}}</td><td>Sanctioned Amount</td></tr>
+                    <tr><td>{{amount_in_words}}</td><td>Amount in Words</td></tr>
+                    <tr><td>{{head_of_account}}</td><td>Head of Account</td></tr>
+                    <tr><td>{{financial_year}}</td><td>Financial Year</td></tr>
+                    <tr><td>{{meeting_subject}}</td><td>Subject of Meeting</td></tr>
+                    <tr><td>{{meeting_date}}</td><td>Date of Meeting</td></tr>
+                    <tr><td>{{meeting_time}}</td><td>Time of Meeting</td></tr>
+                    <tr><td>{{meeting_venue}}</td><td>Venue of Meeting</td></tr>
+                    <tr><td>{{noc_purpose}}</td><td>Purpose of NOC</td></tr>
+                    <tr><td>{{validity_period}}</td><td>Validity Period (Months)</td></tr>
+                </table>
+            </div>
+            <div style="text-align: right; margin-top: 10px;">
+                <button onclick="document.getElementById('cheatsheetModal').style.display='none'" class="btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        function toggleRawText() {
+            var el = document.getElementById('rawTextContainer');
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                document.getElementById('rawTextInput').focus();
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        function convertRawText() {
+            var text = document.getElementById('rawTextInput').value;
+            if (!text.trim()) return;
+
+            // Escape HTML characters to prevent XSS and rendering issues
+            var escaped = text.replace(/&/g, "&amp;")
+                              .replace(/</g, "&lt;")
+                              .replace(/>/g, "&gt;")
+                              .replace(/"/g, "&quot;")
+                              .replace(/'/g, "&#039;");
+
+            // Simple conversion: Newlines to paragraphs
+            var html = escaped.split('\n').filter(line => line.trim() !== '').map(line => '<p>' + line + '</p>').join('');
+
+            var editor = document.getElementById('editableContent');
+
+            // If empty state is visible, hide it and show page
+            var emptyState = document.getElementById('emptyState');
+            var docPage = document.getElementById('documentPage');
+            if (emptyState) {
+                emptyState.style.display = 'none';
+                docPage.classList.remove('hidden');
+            }
+
+            editor.innerHTML = html;
+            toggleRawText();
+        }
+
         function toggleSetupMode(val) {
             document.querySelectorAll('.setup-section').forEach(el => el.classList.add('hidden'));
             document.getElementById('setup_' + val).classList.remove('hidden');

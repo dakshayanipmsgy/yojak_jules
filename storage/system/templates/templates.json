@@ -1,37 +1,27 @@
-{
-    "tpl_work_order": {
-        "id": "tpl_work_order",
+[
+    {
+        "id": "work_order",
         "title": "Work Order",
-        "filename": "work_order.html",
-        "updated_at": "2024-10-27 10:00:00",
-        "is_universal": true
+        "filename": "work_order.html"
     },
-    "tpl_show_cause": {
-        "id": "tpl_show_cause",
+    {
+        "id": "show_cause",
         "title": "Show Cause Notice",
-        "filename": "show_cause_notice.html",
-        "updated_at": "2024-10-27 10:00:00",
-        "is_universal": true
+        "filename": "show_cause.html"
     },
-    "tpl_sanction": {
-        "id": "tpl_sanction",
+    {
+        "id": "sanction_letter",
         "title": "Sanction Letter",
-        "filename": "sanction_letter.html",
-        "updated_at": "2024-10-27 10:00:00",
-        "is_universal": true
+        "filename": "sanction_letter.html"
     },
-    "tpl_meeting": {
-        "id": "tpl_meeting",
+    {
+        "id": "meeting_notice",
         "title": "Meeting Notice",
-        "filename": "meeting_notice.html",
-        "updated_at": "2024-10-27 10:00:00",
-        "is_universal": true
+        "filename": "meeting_notice.html"
     },
-    "tpl_noc": {
-        "id": "tpl_noc",
+    {
+        "id": "noc_certificate",
         "title": "NOC Certificate",
-        "filename": "noc_certificate.html",
-        "updated_at": "2024-10-27 10:00:00",
-        "is_universal": true
+        "filename": "noc_certificate.html"
     }
-}
+]
