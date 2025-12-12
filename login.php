@@ -108,6 +108,10 @@ if (password_verify($password, $userData['password'])) {
     $_SESSION['dept_id'] = $deptId;
     $_SESSION['role_id'] = $userData['role'];
 
+    // Load Department Tier into Session
+    $deptMeta = readJSON('departments/' . $deptId . '/department.json');
+    $_SESSION['dept_tier'] = isset($deptMeta['tier']) ? (int)$deptMeta['tier'] : 1;
+
     header('Location: dashboard.php');
     exit;
 } else {

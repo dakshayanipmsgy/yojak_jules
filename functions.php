@@ -420,13 +420,17 @@ function checkFeature($featureName) {
         return false;
     }
 
-    $deptId = $_SESSION['dept_id'];
-    $deptMeta = readJSON('departments/' . $deptId . '/department.json');
-    if (!$deptMeta) {
-        return false;
+    // Priority: Session (cached) -> File (fallback)
+    if (isset($_SESSION['dept_tier'])) {
+        $tier = (int)$_SESSION['dept_tier'];
+    } else {
+        $deptId = $_SESSION['dept_id'];
+        $deptMeta = readJSON('departments/' . $deptId . '/department.json');
+        if (!$deptMeta) {
+            return false;
+        }
+        $tier = isset($deptMeta['tier']) ? (int)$deptMeta['tier'] : 1; // Default to Tier 1 if missing
     }
-
-    $tier = isset($deptMeta['tier']) ? (int)$deptMeta['tier'] : 1; // Default to Tier 1 if missing
 
     // Feature Requirements Mapping
     $requirements = [
@@ -444,6 +448,29 @@ function checkFeature($featureName) {
 
     // Default: Allow if feature not listed (e.g. Tenders, Contractors)
     return true;
+}
+
+/**
+ * Enforces feature access by stopping execution if the feature is not allowed.
+ *
+ * @param string $featureName
+ */
+function enforceFeature($featureName) {
+    if (!checkFeature($featureName)) {
+        // Fetch tier for the error message
+        $current_tier = isset($_SESSION['dept_tier']) ? $_SESSION['dept_tier'] : 'Unknown';
+
+        // If not in session, try to read from file to be helpful
+        if ($current_tier === 'Unknown' && isset($_SESSION['dept_id'])) {
+             $deptMeta = readJSON('departments/' . $_SESSION['dept_id'] . '/department.json');
+             if ($deptMeta) {
+                 $current_tier = isset($deptMeta['tier']) ? $deptMeta['tier'] : 1;
+             }
+        }
+
+        http_response_code(403);
+        die("<h1>Access Denied</h1><p>Your current plan (Tier " . $current_tier . ") does not include the <b>$featureName</b> feature. Please contact Superadmin to upgrade.</p>");
+    }
 }
 
 /* ==========================================
