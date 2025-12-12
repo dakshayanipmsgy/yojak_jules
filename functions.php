@@ -478,10 +478,55 @@ function enforceFeature($featureName) {
    ========================================== */
 
 /**
- * Generates a unique Document ID.
- * Format: DOC_YYYY_RANDOM
+ * Generates the next unique ID based on department settings.
+ *
+ * @param string $deptId
+ * @param string $type 'doc' or 'wo'
+ * @return string
  */
-function generateDocumentID() {
+function getNextID($deptId, $type = 'doc') {
+    $settingsPath = 'departments/' . $deptId . '/data/settings.json';
+    $settings = readJSON($settingsPath);
+
+    // Fallback if settings not configured
+    if (!$settings) {
+        if ($type === 'doc') return generateDocumentID(null); // Fallback to random
+        return strtoupper($type) . '_' . date('Y') . '_' . rand(1000, 9999);
+    }
+
+    $prefixKey = $type . '_prefix';
+    $counterKey = $type . '_counter';
+
+    if (!isset($settings[$prefixKey]) || !isset($settings[$counterKey])) {
+        if ($type === 'doc') return generateDocumentID(null);
+        return strtoupper($type) . '_' . date('Y') . '_' . rand(1000, 9999);
+    }
+
+    $prefix = $settings[$prefixKey];
+    $counter = (int)$settings[$counterKey];
+
+    // Format: Documents 3 digits (001), Work Orders 2 digits (05) as per requirements
+    $padding = ($type === 'doc') ? 3 : 2;
+    $id = $prefix . str_pad($counter, $padding, '0', STR_PAD_LEFT);
+
+    // Increment and Save
+    $settings[$counterKey] = $counter + 1;
+    writeJSON($settingsPath, $settings);
+
+    return $id;
+}
+
+/**
+ * Generates a unique Document ID.
+ * Format: DOC_YYYY_RANDOM (Legacy) or Custom Sequence if Dept ID provided.
+ *
+ * @param string|null $deptId
+ * @return string
+ */
+function generateDocumentID($deptId = null) {
+    if ($deptId) {
+        return getNextID($deptId, 'doc');
+    }
     return 'DOC_' . date('Y') . '_' . strtoupper(bin2hex(random_bytes(4)));
 }
 

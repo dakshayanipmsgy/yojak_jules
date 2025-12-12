@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $entry['attached_to_file'] = $attachFileId;
 
                 // Create Document in File
-                $docId = generateDocumentID();
+                $docId = generateDocumentID($deptId);
                 $docData = [
                     'id' => $docId,
                     'title' => "Offline Dak: " . $subject,
