@@ -301,10 +301,14 @@ if (!empty($inbox)) {
                 <section class="departments-list" style="margin-top: 2rem;">
                     <div class="section-header">
                         <h2>Departments</h2>
-                        <button id="showCreateFormBtn" class="btn-primary">Create New Department</button>
+                        <a href="admin_departments.php" class="btn-primary">Manage Departments</a>
                     </div>
+                    <!-- Detailed management moved to admin_departments.php -->
+                    <!-- Displaying a simple overview here or nothing -->
+                    <p>Go to <strong>Manage Departments</strong> to create, suspend, archive, or change tiers of departments.</p>
 
-                    <div class="tabs">
+                    <div class="tabs" style="display:none;">
+                        <!-- Hidden tabs logic since we moved it -->
                         <div class="tab active" onclick="showTab('active-depts', this)">Active Departments</div>
                         <div class="tab" onclick="showTab('archived-depts', this)">Archived</div>
                     </div>
@@ -565,10 +569,12 @@ if (!empty($inbox)) {
                                     <strong>Governance Requests</strong>
                                     <a href="request_action.php" class="btn-small">Manage Requests</a>
                                 </li>
+                                    <?php if (checkFeature('backup')): ?>
                                 <li>
                                     <strong>Backup</strong>
                                     <a href="backup.php" class="btn-small" style="background-color: #6610f2; border-color: #6610f2;">Download Data (.zip)</a>
                                 </li>
+                                    <?php endif; ?>
                             </ul>
                         </section>
 

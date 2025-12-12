@@ -334,7 +334,7 @@ $hasAI = !empty($aiConfig['openai']['key']) || !empty($aiConfig['gemini']['key']
                     <?php echo $generatedHtml ? 'Change Template / Setup' : 'Start / Select Template'; ?>
                 </button>
 
-                <?php if($hasAI): ?>
+                <?php if($hasAI && checkFeature('ai_writer')): ?>
                 <button onclick="document.getElementById('aiModal').style.display='block'" class="btn-secondary" style="background:#6f42c1; color:white;">✨ AI Draft</button>
                 <?php endif; ?>
             <?php else: ?>

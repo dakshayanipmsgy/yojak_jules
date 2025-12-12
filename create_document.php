@@ -484,7 +484,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
                                 <option value="<?php echo $t['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($t['display_title']); ?></option>
                             <?php endforeach; ?>
                         </select>
+                        <?php if (checkFeature('ai_writer')): ?>
                         <button type="button" class="btn-secondary" style="background:#6f42c1; color:white; border:none;" onclick="openAiModal()">✨ Draft with AI</button>
+                        <?php endif; ?>
                     </div>
                 </div>
 
