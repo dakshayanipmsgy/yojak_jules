@@ -19,6 +19,15 @@ if (!empty($searchId)) {
 
         foreach ($departments as $dept) {
             $deptId = $dept['id'];
+
+            // Tier 4 Check: Public Tracking
+            // We verify the department's tier before allowing public tracking.
+            // Since we don't have a session, we manually read the tier.
+            $tier = isset($dept['tier']) ? (int)$dept['tier'] : 1;
+            if ($tier < 4) {
+                continue; // Skip this department (it's hidden from public tracking)
+            }
+
             $doc = getDocument($deptId, $searchId);
 
             if ($doc) {

@@ -172,7 +172,8 @@ function createDepartment($name, $id, $password, $adminUserId = null) {
         'name' => $name,
         'id' => $id,
         'created_at' => date('Y-m-d H:i:s'),
-        'status' => 'active'
+        'status' => 'active',
+        'tier' => '1' // Default Tier 1
     ];
     if (!writeJSON('departments/' . $id . '/department.json', $metadata)) {
         return ['success' => false, 'message' => 'Failed to create department metadata.'];
@@ -406,6 +407,43 @@ function getRoles($deptId) {
  */
 function getUsers($deptId) {
     return readJSON('departments/' . $deptId . '/users/users.json') ?? [];
+}
+
+/**
+ * Checks if a feature is allowed for the current department based on its Tier.
+ *
+ * @param string $featureName
+ * @return bool
+ */
+function checkFeature($featureName) {
+    if (!isset($_SESSION['dept_id'])) {
+        return false;
+    }
+
+    $deptId = $_SESSION['dept_id'];
+    $deptMeta = readJSON('departments/' . $deptId . '/department.json');
+    if (!$deptMeta) {
+        return false;
+    }
+
+    $tier = isset($deptMeta['tier']) ? (int)$deptMeta['tier'] : 1; // Default to Tier 1 if missing
+
+    // Feature Requirements Mapping
+    $requirements = [
+        'ai_writer' => 2,
+        'dak_register' => 2,
+        'file_system' => 3,
+        'note_sheets' => 3,
+        'public_tracking' => 4,
+        'backup' => 4
+    ];
+
+    if (isset($requirements[$featureName])) {
+        return $tier >= $requirements[$featureName];
+    }
+
+    // Default: Allow if feature not listed (e.g. Tenders, Contractors)
+    return true;
 }
 
 /* ==========================================
