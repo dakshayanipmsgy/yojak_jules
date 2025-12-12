@@ -40,8 +40,11 @@ if (!$isSuperadmin && $deptId) {
             <?php endif; ?>
 
             <a href="tenders.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'tenders.php' ? 'active' : ''; ?>">Tenders</a>
+            <a href="work_orders.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'work_orders.php' ? 'active' : ''; ?>">Work Orders</a>
+
             <?php if ($isAdmin): ?>
                 <a href="manage_contractors.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'manage_contractors.php' ? 'active' : ''; ?>">Contractors</a>
+                <a href="dept_settings.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'dept_settings.php' ? 'active' : ''; ?>">Settings</a>
                 <a href="manage_templates.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'manage_templates.php' ? 'active' : ''; ?>">Templates</a>
                 <a href="master_register.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'master_register.php' ? 'active' : ''; ?>">Master Register</a>
             <?php else: ?>

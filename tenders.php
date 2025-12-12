@@ -21,6 +21,11 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_tender'])) {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
+    $work_description = trim($_POST['work_description'] ?? '');
+    $estimated_cost = (float)($_POST['estimated_cost'] ?? 0);
+    $emd_amount = (float)($_POST['emd_amount'] ?? 0);
+    $tender_fee = (float)($_POST['tender_fee'] ?? 0);
+    $security_deposit_percent = (float)($_POST['security_deposit_percent'] ?? 0);
 
     if (empty($title)) {
         $error = "Title is required.";
@@ -40,6 +45,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_tender'])) {
             'tender_id' => $tenderId,
             'title' => $title,
             'description' => $description,
+            'work_description' => $work_description,
+            'estimated_cost' => $estimated_cost,
+            'emd_amount' => $emd_amount,
+            'tender_fee' => $tender_fee,
+            'security_deposit_percent' => $security_deposit_percent,
             'participants' => [],
             'created_at' => date('Y-m-d H:i:s'),
             'status' => 'Open',
@@ -141,9 +151,37 @@ usort($tenderList, function($a, $b) {
                     <input type="text" name="title" required placeholder="e.g. Road Repair Zone 4">
                 </div>
                 <div class="form-group">
-                    <label>Description (Optional)</label>
-                    <textarea name="description" rows="2" placeholder="Brief description of the work..."></textarea>
+                    <label>Short Description (Optional)</label>
+                    <textarea name="description" rows="2" placeholder="Brief summary..."></textarea>
                 </div>
+
+                <div class="form-group">
+                    <label>Detailed Work Description</label>
+                    <textarea name="work_description" rows="4" placeholder="Full details of the work required..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Estimated Cost (₹)</label>
+                        <input type="number" step="0.01" name="estimated_cost" placeholder="0.00">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>EMD Amount (₹)</label>
+                        <input type="number" step="0.01" name="emd_amount" placeholder="0.00">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Tender Fee (₹)</label>
+                        <input type="number" step="0.01" name="tender_fee" placeholder="0.00">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Security Deposit (%)</label>
+                        <input type="number" step="0.01" name="security_deposit_percent" placeholder="e.g. 10">
+                    </div>
+                </div>
+
                 <button type="submit" class="btn-primary">Create Tender</button>
             </form>
         </div>

@@ -214,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_document'])) {
 
         } else {
             // Create New
-            $docId = generateDocumentID();
+            $docId = generateDocumentID($deptId);
             $docData = [
                 'id' => $docId,
                 'title' => $title,
