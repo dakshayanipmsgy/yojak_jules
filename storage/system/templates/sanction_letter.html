@@ -1,4 +1,11 @@
-<b>Administrative Approval</b>.
-
-
-Sanction is hereby accorded for the expenditure of Rs. [Amount] for the purpose of [Purpose]...
+<p style="text-align: center; font-weight: bold;">OFFICE ORDER</p>
+<p style="text-align: center; font-weight: bold;">{{department_name}}</p>
+<hr>
+<p><strong>Order No:</strong> {{ref_number}} <span style="float: right;"><strong>Date:</strong> {{current_date}}</span></p>
+<p><strong>Subject: Administrative Approval for "{{work_name}}"</strong></p>
+<p>Sanction is hereby accorded for the execution of the scheme mentioned below under the Head of Account <strong>{{head_of_account}}</strong> for the financial year {{financial_year}}.</p>
+<table border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+<tr><td><strong>1. Name of Scheme</strong></td><td>{{work_name}}</td></tr>
+<tr><td><strong>2. Sanctioned Amount</strong></td><td>Rs. {{sanction_amount}} ({{amount_in_words}})</td></tr>
+</table>
+<br><br><p><strong>Secretary</strong><br>{{department_name}}</p>
