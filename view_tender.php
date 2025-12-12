@@ -254,7 +254,7 @@ $tender = $tenders[$tenderId];
                     </td>
                     <td>
                         <?php if ($p['status'] === 'L1 Winner'): ?>
-                            <a href="create_document.php?contractor_id=<?php echo urlencode($p['contractor_id']); ?>&template=work_order" class="btn-primary" style="font-size:0.8rem; text-decoration:none;">Draft WO</a>
+                            <a href="create_work_order.php?tender_id=<?php echo urlencode($tenderId); ?>&contractor_id=<?php echo urlencode($p['contractor_id']); ?>&source=tender" class="btn-primary" style="font-size:0.8rem; text-decoration:none;">Issue Work Order</a>
                         <?php endif; ?>
                     </td>
                 </tr>
