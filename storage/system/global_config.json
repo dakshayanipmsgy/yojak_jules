@@ -1,8 +1,1 @@
-{
-    "username": "admin",
-    "password_hash": "$2y$10$8RSO/PV2tqSWVVIeVZ/zquoMpPn2edykwCOlVetO0mRYM6kWCFlNa",
-    "ai_config": {
-        "openai": { "key": "", "model": "gpt-4o" },
-        "gemini": { "key": "", "model": "gemini-1.5-flash" }
-    }
-}
+{"ai_config": {"openai": {"key": "", "model": "gpt-4o"}, "gemini": {"key": "", "model": "gemini-1.5-flash"}}, "username": "admin", "password_hash": "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi"}
