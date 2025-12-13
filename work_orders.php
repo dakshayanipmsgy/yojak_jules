@@ -125,7 +125,7 @@ usort($woList, function($a, $b) {
                         <?php endif; ?>
                     </div>
                     <div class="actions">
-                        <a href="#" class="btn-secondary" onclick="alert('Print functionality to be implemented'); return false;">View/Print</a>
+                        <a href="print_work_order.php?id=<?php echo htmlspecialchars($wo['wo_unique_id']); ?>" target="_blank" class="btn-secondary">View/Print</a>
                         <!-- Edit could link to create_work_order.php?id=... if implemented later -->
                     </div>
                 </div>
