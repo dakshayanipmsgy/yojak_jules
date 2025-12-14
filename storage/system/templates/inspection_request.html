@@ -1,0 +1,45 @@
+<html>
+<head>
+    <style>
+        body { font-family: 'Times New Roman', serif; line-height: 1.6; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .subject { font-weight: bold; margin-bottom: 20px; }
+        .content { margin-bottom: 40px; text-align: justify; }
+        .signature { margin-top: 50px; text-align: right; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h3>GOVERNMENT OF [STATE/INDIA]</h3>
+        <h4>DEPARTMENT OF [DEPARTMENT NAME]</h4>
+    </div>
+
+    <p>To,<br>
+    <strong>{{officer_name}}</strong><br>
+    {{officer_designation}}<br>
+    {{department_name}}</p>
+
+    <p><strong>Date:</strong> {{current_date}}</p>
+
+    <div class="subject">
+        Subject: Call for Inspection of {{stage}} for Work Order No. {{wo_number}}
+    </div>
+
+    <div class="content">
+        <p>Sir/Madam,</p>
+
+        <p>This is to inform you that the <strong>{{stage}}</strong> stage for the work <strong>"{{work_name}}"</strong> has been reported as completed by the contractor.</p>
+
+        <p>You are requested to inspect the site/materials on <strong>{{inspection_date}}</strong> and verify the quality and quantity as per the specifications laid down in the agreement.</p>
+
+        <p>Kindly submit your inspection report at the earliest so that the subsequent billing process can be initiated.</p>
+    </div>
+
+    <div class="signature">
+        <p>Yours faithfully,</p>
+        <br><br>
+        <p><strong>{{sender_name}}</strong><br>
+        {{sender_designation}}</p>
+    </div>
+</body>
+</html>

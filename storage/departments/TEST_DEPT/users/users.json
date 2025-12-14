@@ -1,1 +1,14 @@
-{"user.admin.TEST_DEPT":{"full_name":"Test Admin","role":"admin.TEST_DEPT","status":"active","password":"$2y$10$rwYMSQV2FLNa6gtbLda0oO\/NEoWkFPImvrJAzvEbjm46uINqoHFQ."}}
+{
+    "user.admin.TEST_DEPT": {
+        "full_name": "Test Admin",
+        "role": "admin.TEST_DEPT",
+        "status": "active",
+        "password": "$2y$10$rwYMSQV2FLNa6gtbLda0oO\/NEoWkFPImvrJAzvEbjm46uINqoHFQ."
+    },
+    "user.je.test_dept": {
+        "full_name": "John Doe",
+        "password": "$2y$10$oT2RLiJV1SwM3gdh2mNDM.oAIy9jl4QzTl6yq1U63SFRUNspyuXq6",
+        "role": "JE.TEST_DEPT",
+        "status": "active"
+    }
+}

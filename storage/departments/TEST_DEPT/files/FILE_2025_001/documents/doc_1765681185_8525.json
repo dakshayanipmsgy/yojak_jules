@@ -1,0 +1,9 @@
+{
+    "id": "doc_1765681185_8525",
+    "title": "Inspection Request - Foundation",
+    "content": "<html>\n<head>\n    <style>\n        body { font-family: 'Times New Roman', serif; line-height: 1.6; }\n        .header { text-align: center; margin-bottom: 30px; }\n        .subject { font-weight: bold; margin-bottom: 20px; }\n        .content { margin-bottom: 40px; text-align: justify; }\n        .signature { margin-top: 50px; text-align: right; }\n    <\/style>\n<\/head>\n<body>\n    <div class=\"header\">\n        <h3>GOVERNMENT OF [STATE\/INDIA]<\/h3>\n        <h4>DEPARTMENT OF [DEPARTMENT NAME]<\/h4>\n    <\/div>\n\n    <p>To,<br>\n    <strong>John Doe<\/strong><br>\n    Junior Engineer<br>\n    Test Department<\/p>\n\n    <p><strong>Date:<\/strong> 14-12-2025<\/p>\n\n    <div class=\"subject\">\n        Subject: Call for Inspection of Foundation for Work Order No. WO-001\n    <\/div>\n\n    <div class=\"content\">\n        <p>Sir\/Madam,<\/p>\n\n        <p>This is to inform you that the <strong>Foundation<\/strong> stage for the work <strong>\"Construction of Boundary Wall\"<\/strong> has been reported as completed by the contractor.<\/p>\n\n        <p>You are requested to inspect the site\/materials on <strong>31-12-2025<\/strong> and verify the quality and quantity as per the specifications laid down in the agreement.<\/p>\n\n        <p>Kindly submit your inspection report at the earliest so that the subsequent billing process can be initiated.<\/p>\n    <\/div>\n\n    <div class=\"signature\">\n        <p>Yours faithfully,<\/p>\n        <br><br>\n        <p><strong>Test Admin<\/strong><br>\n        Administrator<\/p>\n    <\/div>\n<\/body>\n<\/html>\n",
+    "status": "draft",
+    "created_by": "user.admin.TEST_DEPT",
+    "created_at": "2025-12-14 02:59:45",
+    "type": "document"
+}
