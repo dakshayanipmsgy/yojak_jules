@@ -82,6 +82,7 @@ HTML,
 HTML,
 
     'agreement_f2.html' => <<<HTML
+<!-- Version 41 -->
 <p style="text-align: center; font-weight: bold;">STANDARD AGREEMENT FORM (F-2)</p>
 <p style="text-align: center; font-weight: bold;">{{department_name}}</p>
 <hr>
@@ -111,7 +112,7 @@ HTML,
 <p><strong>Subject: Submission of Performance Guarantee for "{{work_name}}"</strong></p>
 <p>Sir,</p>
 <p>With reference to the Work Order issued for the above-mentioned work, you are requested to submit the Performance Guarantee (Security Deposit) as per the rules.</p>
-<p><strong>Required PG Amount:</strong> Rs. {{pg_amount}} (5% of Agreement Value)</p>
+<p><strong>Required PG Amount:</strong> Rs. {{pg_amount}} ({{pg_percent}}% of Agreement Value)</p>
 <p>Please submit the Bank Guarantee / FDR in favor of the Executive Engineer within <strong>7 days</strong> from the issue of this letter, failing which the agreement process will be delayed.</p>
 <br><br><p><strong>Executive Engineer</strong><br>{{department_name}}</p>
 HTML

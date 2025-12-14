@@ -107,10 +107,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($fileId) {
             $workOrders[$wo_unique_id]['file_id'] = $fileId;
 
-            // Calculate PG Amount (5% of Agreed Amount)
+            // Calculate PG Amount
+            $pgPercent = 5; // Default
+            if (isset($financial_rules['pg_percent'])) {
+                $pgPercent = floatval($financial_rules['pg_percent']);
+            }
+
             // Sanitize amount (remove commas if any)
             $sanitizedAmount = str_replace(',', '', $agreed_amount);
-            $pgAmount = floatval($sanitizedAmount) * 0.05;
+            $pgAmount = floatval($sanitizedAmount) * ($pgPercent / 100);
 
             // Fetch Department Name
             $deptMeta = getDepartment($deptId);
@@ -128,13 +133,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 '{{work_name}}' => $work_name,
                 '{{contractor_name}}' => $cName,
                 '{{contractor_address}}' => $cAddress,
-                '{{agreed_amount}}' => $agreed_amount,
+                '{{agreed_amount}}' => $agreed_amount, // Agreement Value
                 '{{estimated_cost}}' => $agreed_amount, // Approximation
-                '{{time_allowed}}' => $time_completion,
+                '{{time_allowed}}' => $time_completion, // Time Allowed
                 '{{date_issue}}' => $date_issue,
                 '{{current_date}}' => date('d-m-Y'),
                 '{{current_year}}' => date('Y'),
                 '{{department_name}}' => $deptName,
+                '{{pg_percent}}' => $pgPercent,
                 '{{pg_amount}}' => number_format($pgAmount, 2),
                 '{{ref_number}}' => 'DRAFT/' . date('Y') . '/XX'
             ];
@@ -143,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tplAgreement = @file_get_contents('storage/system/templates/agreement_f2.html');
             if ($tplAgreement) {
                 $contentAgreement = str_replace(array_keys($commonReplacements), array_values($commonReplacements), $tplAgreement);
-                $docId1 = generateDocumentID($deptId);
+                $docId1 = 'draft_agreement_' . $wo_unique_id;
                 $doc1 = [
                     'id' => $docId1,
                     'title' => 'Agreement - ' . $work_name,
@@ -171,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tplPG = @file_get_contents('storage/system/templates/pg_request.html');
             if ($tplPG) {
                 $contentPG = str_replace(array_keys($commonReplacements), array_values($commonReplacements), $tplPG);
-                $docId2 = generateDocumentID($deptId);
+                $docId2 = 'draft_pg_req_' . $wo_unique_id;
                 $doc2 = [
                     'id' => $docId2,
                     'title' => 'Letter: Request for PG - ' . $work_name,
@@ -214,7 +220,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Redirect
-        header("Location: work_orders.php?msg=created");
+        // Visual Confirmation: Redirect to manage_wo.php with success message
+        header("Location: manage_wo.php?id=" . $wo_unique_id . "&msg=created_with_docs");
         exit;
     }
 }
