@@ -9,58 +9,18 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'contractor' || !isset($_
 }
 
 $yojakId = $_SESSION['yojak_id'];
-$successMsg = '';
-$errorMsg = '';
+$successMsg = $_SESSION['flash_success'] ?? '';
+$errorMsg = $_SESSION['flash_error'] ?? '';
+unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
 // Load Contractor Data
 $contractors = readJSON('global/data/contractors.json') ?? [];
 $contractor = $contractors[$yojakId] ?? null;
 
 if (!$contractor) {
-    // Session exists but data missing?
     session_destroy();
     header("Location: contractor_login.php");
     exit;
-}
-
-// Handle Link Department
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'link_dept') {
-    $deptCode = trim($_POST['dept_code'] ?? '');
-    $localId = trim($_POST['local_id'] ?? '');
-
-    if (!empty($deptCode) && !empty($localId)) {
-        // Basic check if dept exists
-        if (is_dir(STORAGE_PATH . '/departments/' . $deptCode)) {
-            $alreadyLinked = false;
-            foreach ($contractor['linked_departments'] as $link) {
-                if ($link['dept_id'] === $deptCode) {
-                    $alreadyLinked = true;
-                    break;
-                }
-            }
-
-            if ($alreadyLinked) {
-                $errorMsg = "You are already linked to this department.";
-            } else {
-                $contractor['linked_departments'][] = [
-                    'dept_id' => $deptCode,
-                    'local_contractor_id' => $localId,
-                    'status' => 'Pending', // As per requirement
-                    'linked_at' => date('Y-m-d H:i:s')
-                ];
-                $contractors[$yojakId] = $contractor;
-                if (writeJSON('global/data/contractors.json', $contractors)) {
-                    $successMsg = "Link request submitted for " . htmlspecialchars($deptCode);
-                } else {
-                    $errorMsg = "Failed to save link.";
-                }
-            }
-        } else {
-            $errorMsg = "Invalid Department Code.";
-        }
-    } else {
-        $errorMsg = "Please fill all fields.";
-    }
 }
 
 // Calculate Profile Strength
@@ -70,12 +30,27 @@ $filled = 0;
 foreach ($fields as $f) {
     if (!empty($profile[$f])) $filled++;
 }
-// Bank details check
 if (!empty($profile['bank_details']['ac_no']) && !empty($profile['bank_details']['ifsc'])) {
     $filled++;
 }
-$totalFields = count($fields) + 1; // +1 for bank details
-$strength = round(($filled / $totalFields) * 100);
+
+// Add Vault Score to Profile Strength
+// Calculate Vault Score
+$vaultScore = 0;
+$vaultDocs = $contractor['vault'] ?? [];
+$cats = [];
+foreach ($vaultDocs as $d) $cats[$d['category']] = true;
+if (isset($cats['Identity'])) $vaultScore += 1;
+if (isset($cats['Financial'])) $vaultScore += 1;
+if (isset($cats['Technical'])) $vaultScore += 1;
+
+// Total points: 7 profile fields + 3 vault categories = 10 total points roughly?
+// Or just weight it.
+// Original: 7 fields. New: +3 points.
+$totalPoints = count($fields) + 1 + 3;
+$currentPoints = $filled + $vaultScore;
+
+$strength = round(($currentPoints / $totalPoints) * 100);
 
 // Get Linked Departments
 $linkedDepts = $contractor['linked_departments'] ?? [];
@@ -83,26 +58,16 @@ $linkedDepts = $contractor['linked_departments'] ?? [];
 // Get Departments List for Dropdown
 $allDepts = getAllDepartments();
 
-// Calculate Quick Stats (Scanning linked departments)
+// Calculate Quick Stats
 $stats = [
     'work_orders' => 0,
     'tenders' => 0
 ];
-// Note: Real scanning might be slow if many depts. We'll try to do it if linked depts exist.
-// Only scanning verified links or just all? Prompt implies "Active Work Orders", so maybe just verified.
-// But for now, let's scan all links that are "Verified" (or maybe the user said "Pending" is initial status).
-// If status is Pending, maybe they don't see data yet?
-// Prompt says: "Link Now" -> "Pending".
-// Assuming only Verified allows access. But for prototype, let's just count everything or mock it?
-// "Quick Stats: Active Work Orders (Count), Total Tenders (Count)."
-// I will attempt to scan.
 foreach ($linkedDepts as $link) {
-    // Only scan verified links to prevent data leakage from spoofed IDs
     if (($link['status'] ?? '') === 'Verified') {
         $dId = $link['dept_id'];
         $localCId = $link['local_contractor_id'];
 
-        // Tenders
         $tenders = readJSON("departments/$dId/data/tenders.json") ?? [];
         foreach ($tenders as $t) {
             if (isset($t['participants']) && is_array($t['participants'])) {
@@ -115,7 +80,6 @@ foreach ($linkedDepts as $link) {
             }
         }
 
-        // Work Orders
         $wos = readJSON("departments/$dId/data/work_orders.json") ?? [];
         foreach ($wos as $wo) {
             if (($wo['contractor_id'] ?? '') === $localCId && ($wo['status'] ?? '') === 'Issued') {
@@ -124,7 +88,6 @@ foreach ($linkedDepts as $link) {
         }
     }
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -137,7 +100,6 @@ foreach ($linkedDepts as $link) {
     <style>
         :root {
             --sidebar-width: 250px;
-            --header-height: 60px;
         }
         body {
             background-color: #f4f6f8;
@@ -258,7 +220,7 @@ foreach ($linkedDepts as $link) {
         .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; text-transform: uppercase; font-weight: bold; }
         .badge-verified { background: #d4edda; color: #155724; }
         .badge-pending { background: #fff3cd; color: #856404; }
-
+        .badge-rejected { background: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
@@ -272,7 +234,7 @@ foreach ($linkedDepts as $link) {
             <li><a href="contractor_dashboard.php" class="active">Home</a></li>
             <li><a href="contractor_profile.php">My Profile</a></li>
             <li><a href="#">Linked Depts</a></li>
-            <li><a href="#">Documents</a></li>
+            <li><a href="contractor_vault.php">Documents</a></li>
             <li style="margin-top: auto; border-top: 1px solid #eee;"><a href="logout.php">Logout</a></li>
         </ul>
     </div>
@@ -303,12 +265,16 @@ foreach ($linkedDepts as $link) {
                 </div>
                 <p style="font-size: 14px; color: #666;">
                     <?php if ($strength < 80): ?>
-                        Add GST/PAN details to reach 80% and unlock more features.
+                        Upload Vault documents and complete profile to reach 80%.
                     <?php else: ?>
-                        Your profile is looking great!
+                        Your profile is robust!
                     <?php endif; ?>
                 </p>
-                <a href="contractor_profile.php" style="color: var(--primary-color); font-size: 14px; text-decoration: none; font-weight: 500;">Edit Profile &rarr;</a>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <a href="contractor_profile.php" style="color: var(--primary-color); font-size: 14px; text-decoration: none; font-weight: 500;">Edit Profile</a>
+                    <span style="color: #ddd;">|</span>
+                    <a href="contractor_vault.php" style="color: var(--primary-color); font-size: 14px; text-decoration: none; font-weight: 500;">Go to Vault</a>
+                </div>
             </div>
 
             <!-- Quick Stats -->
@@ -329,8 +295,7 @@ foreach ($linkedDepts as $link) {
             <!-- Link Department -->
             <div class="card">
                 <h3>Link Department</h3>
-                <form method="POST">
-                    <input type="hidden" name="action" value="link_dept">
+                <form method="POST" action="link_department_logic.php">
                     <div class="form-group">
                         <label>Department Code</label>
                         <select name="dept_code" class="form-control" required>
@@ -348,7 +313,7 @@ foreach ($linkedDepts as $link) {
                         <label>Your Local ID (e.g. CON-DWS-005)</label>
                         <input type="text" name="local_id" class="form-control" required placeholder="Found in your contract documents">
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width:100%">Link Now</button>
+                    <button type="submit" class="btn btn-primary" style="width:100%">Verify & Link</button>
                 </form>
             </div>
 
@@ -361,13 +326,23 @@ foreach ($linkedDepts as $link) {
                     <ul class="dept-list">
                         <?php foreach ($linkedDepts as $link): ?>
                             <li class="dept-item">
-                                <div>
-                                    <strong><?php echo htmlspecialchars($link['dept_id']); ?></strong>
-                                    <span style="color: #666; font-size: 13px;"> - ID: <?php echo htmlspecialchars($link['local_contractor_id']); ?></span>
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <div style="background: #e3f2fd; color: var(--primary-color); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                                        <?php echo strtoupper(substr($link['dept_id'], 0, 2)); ?>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight: bold;"><?php echo htmlspecialchars($link['dept_id']); ?></div>
+                                        <div style="color: #666; font-size: 13px;">Local ID: <?php echo htmlspecialchars($link['local_contractor_id']); ?></div>
+                                    </div>
                                 </div>
-                                <span class="badge <?php echo ($link['status'] === 'Verified') ? 'badge-verified' : 'badge-pending'; ?>">
-                                    <?php echo htmlspecialchars($link['status']); ?>
-                                </span>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span class="badge <?php echo ($link['status'] === 'Verified') ? 'badge-verified' : 'badge-pending'; ?>">
+                                        <?php echo htmlspecialchars($link['status']); ?>
+                                    </span>
+                                    <?php if ($link['status'] === 'Verified'): ?>
+                                        <button class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" disabled title="Sync feature coming soon">Sync Data</button>
+                                    <?php endif; ?>
+                                </div>
                             </li>
                         <?php endforeach; ?>
                     </ul>

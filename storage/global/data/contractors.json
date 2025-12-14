@@ -17,6 +17,29 @@
             }
         },
         "linked_departments": [],
-        "created_at": "2025-12-14"
+        "created_at": "2025-12-14",
+        "vault": [
+            {
+                "id": "doc_693e458c28ab1",
+                "title": "Test GST Cert",
+                "category": "Financial",
+                "description": "My GST Certificate",
+                "filename": "1765688716_test_gst_cert.pdf",
+                "uploaded_at": "2025-12-14 05:05:16"
+            }
+        ]
+    },
+    "YJK-VERIFY-001": {
+        "id": "YJK-VERIFY-001",
+        "mobile": "9999999999",
+        "password": "$2y$10$VuZM88jxVlJasGJNfVSHW.Pb1fNjxuNWLdb0AhCpSfqGWJE8CspaK",
+        "tier": "Standard",
+        "profile": {
+            "company_name": "Verify Corp",
+            "owner_name": "V. Erifier",
+            "email": "verify@example.com"
+        },
+        "linked_departments": [],
+        "vault": []
     }
 }
