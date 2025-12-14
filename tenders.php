@@ -27,6 +27,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_tender'])) {
     $tender_fee = (float)($_POST['tender_fee'] ?? 0);
     $security_deposit_percent = (float)($_POST['security_deposit_percent'] ?? 0);
 
+    // Financial Rules
+    $emd_percent = (float)($_POST['emd_percent'] ?? 0);
+    $pg_percent = (float)($_POST['pg_percent'] ?? 0);
+    $sd_deduction_percent = (float)($_POST['sd_deduction_percent'] ?? 0);
+    $defect_liability_period = (int)($_POST['defect_liability_period'] ?? 0);
+
+    // Payment Terms
+    $payment_terms = [];
+    if (isset($_POST['pt_stage']) && is_array($_POST['pt_stage'])) {
+        foreach ($_POST['pt_stage'] as $index => $stage) {
+            $percent = (float)($_POST['pt_percent'][$index] ?? 0);
+            if (!empty($stage) && $percent > 0) {
+                $payment_terms[] = [
+                    'stage' => trim($stage),
+                    'percent' => $percent
+                ];
+            }
+        }
+    }
+
     if (empty($title)) {
         $error = "Title is required.";
     } else {
@@ -50,6 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_tender'])) {
             'emd_amount' => $emd_amount,
             'tender_fee' => $tender_fee,
             'security_deposit_percent' => $security_deposit_percent,
+            'financial_rules' => [
+                'emd_percent' => $emd_percent,
+                'pg_percent' => $pg_percent,
+                'sd_deduction_percent' => $sd_deduction_percent,
+                'defect_liability_period' => $defect_liability_period
+            ],
+            'payment_terms' => $payment_terms,
             'participants' => [],
             'created_at' => date('Y-m-d H:i:s'),
             'status' => 'Open',
@@ -182,9 +209,77 @@ usort($tenderList, function($a, $b) {
                     </div>
                 </div>
 
-                <button type="submit" class="btn-primary">Create Tender</button>
+                <h3>Financial Rules</h3>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>EMD (%)</label>
+                        <input type="number" step="0.01" name="emd_percent" placeholder="e.g. 2">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Performance Guarantee (%)</label>
+                        <input type="number" step="0.01" name="pg_percent" placeholder="e.g. 5">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>SD Deduction (%)</label>
+                        <input type="number" step="0.01" name="sd_deduction_percent" placeholder="e.g. 8">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Defect Liability Period (Months)</label>
+                        <input type="number" name="defect_liability_period" placeholder="e.g. 12">
+                    </div>
+                </div>
+
+                <h3>Payment Terms</h3>
+                <table id="payment-terms-table" style="width: 100%; border-collapse: collapse; margin-bottom: 1rem;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">Stage Name</th>
+                            <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">Percentage (%)</th>
+                            <th style="width: 50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rows will be added here -->
+                    </tbody>
+                </table>
+                <button type="button" class="btn-secondary" onclick="addPaymentStage()" style="margin-bottom: 1.5rem;">+ Add Stage</button>
+
+                <br><br>
+                <button type="submit" class="btn-primary" onclick="return validateTenderForm()">Create Tender</button>
             </form>
         </div>
+
+        <script>
+            function addPaymentStage(name = '', percent = '') {
+                const tbody = document.querySelector('#payment-terms-table tbody');
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="padding: 8px;"><input type="text" name="pt_stage[]" value="${name}" placeholder="e.g. Supply" style="width: 100%; padding: 6px;" required></td>
+                    <td style="padding: 8px;"><input type="number" step="0.01" name="pt_percent[]" value="${percent}" placeholder="0" style="width: 100%; padding: 6px;" class="pt-percent" required></td>
+                    <td style="padding: 8px; text-align: center;"><button type="button" onclick="this.closest('tr').remove()" style="color: red; background: none; border: none; cursor: pointer;">&times;</button></td>
+                `;
+                tbody.appendChild(row);
+            }
+
+            // Add default stage
+            addPaymentStage('Completion', '100');
+
+            function validateTenderForm() {
+                const percents = document.querySelectorAll('.pt-percent');
+                let total = 0;
+                percents.forEach(input => {
+                    total += parseFloat(input.value || 0);
+                });
+
+                if (Math.abs(total - 100) > 0.01) {
+                    alert('Total Payment Terms percentage must equal 100%. Current total: ' + total + '%');
+                    return false;
+                }
+                return true;
+            }
+        </script>
 
         <!-- Tender List -->
         <h2>Active Tenders</h2>
