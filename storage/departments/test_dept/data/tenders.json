@@ -1,0 +1,12 @@
+{
+    "TND/2025/01": {
+        "id": "TND/2025/01",
+        "title": "Road Construction Phase 1",
+        "status": "Closed",
+        "participants": [
+            {"id": "CON-2025-0001", "name": "ABC Constructions"},
+            {"id": "CON-2025-0002", "name": "XYZ Builders"}
+        ],
+        "estimated_cost": "5000000"
+    }
+}

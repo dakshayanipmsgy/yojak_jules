@@ -58,14 +58,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!$error) {
+            $existingPass = $contractors[$id]['password'] ?? null;
             $contractors[$id] = [
                 'id' => $id,
                 'name' => $name,
                 'address' => $address,
                 'pan' => $pan,
                 'gst' => $gst,
-                'mobile' => $mobile
+                'mobile' => $mobile,
+                'password' => $existingPass
             ];
+             // If creating new and no password (shouldn't happen with this logic, but for safety), set default
+            if ($action === 'create') {
+                 $contractors[$id]['password'] = password_hash($mobile, PASSWORD_DEFAULT);
+            }
 
             if (writeJSON($contractorsPath, $contractors)) {
                 $message = "Contractor saved successfully.";
@@ -83,10 +89,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Failed to delete contractor.";
             }
         }
+    } elseif ($action === 'reset_password') {
+        $id = $_POST['id'] ?? '';
+        $newPass = $_POST['new_password'] ?? '';
+
+        if (isset($contractors[$id]) && !empty($newPass)) {
+            $contractors[$id]['password'] = password_hash($newPass, PASSWORD_DEFAULT);
+             if (writeJSON($contractorsPath, $contractors)) {
+                $message = "Password updated successfully for " . htmlspecialchars($contractors[$id]['name']);
+            } else {
+                $error = "Failed to update password.";
+            }
+        } else {
+            $error = "Invalid ID or empty password.";
+        }
     }
 }
 
 $contractors = readJSON($contractorsPath) ?? [];
+
+// Migration Logic: Default password to mobile hash if missing
+$migrationNeeded = false;
+foreach ($contractors as $k => &$c) {
+    if (!isset($c['password']) && !empty($c['mobile'])) {
+        $c['password'] = password_hash($c['mobile'], PASSWORD_DEFAULT);
+        $migrationNeeded = true;
+    }
+}
+unset($c);
+if ($migrationNeeded) {
+    writeJSON($contractorsPath, $contractors);
+}
 
 // Edit Mode
 $editContractor = null;
@@ -198,6 +231,7 @@ if (isset($_GET['edit'])) {
                                 </td>
                                 <td><?php echo htmlspecialchars($c['address']); ?></td>
                                 <td>
+                                    <button type="button" class="btn-small" onclick="openResetModal('<?php echo $c['id']; ?>', '<?php echo addslashes($c['name']); ?>')">Reset Pass</button>
                                     <a href="?edit=<?php echo $c['id']; ?>" class="btn-small">Edit</a>
                                     <form method="POST" action="" style="display:inline;" onsubmit="return confirm('Are you sure?');">
                                         <input type="hidden" name="action" value="delete">
@@ -211,6 +245,27 @@ if (isset($_GET['edit'])) {
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Password Reset Modal -->
+    <div id="resetPasswordModal" class="modal" style="display:none; position:fixed; z-index:1; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
+      <div class="modal-content" style="background-color:#fefefe; margin:15% auto; padding:20px; border:1px solid #888; width:400px; border-radius: 8px;">
+        <span class="close" onclick="document.getElementById('resetPasswordModal').style.display='none'" style="float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+        <h3>Reset Password</h3>
+        <p>Set new password for <span id="resetName" style="font-weight:bold;"></span></p>
+        <form method="POST" action="">
+            <input type="hidden" name="action" value="reset_password">
+            <input type="hidden" name="id" id="resetId">
+            <div class="form-group">
+                <label>New Password</label>
+                <input type="password" name="new_password" required style="width:100%; padding:8px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div style="text-align: right; margin-top: 15px;">
+                 <button type="button" class="btn-secondary" onclick="document.getElementById('resetPasswordModal').style.display='none'">Cancel</button>
+                 <button type="submit" class="btn-primary">Set Password</button>
+            </div>
+        </form>
+      </div>
     </div>
 
     <script>
@@ -238,6 +293,20 @@ if (isset($_GET['edit'])) {
                 }
             }
         });
+
+        function openResetModal(id, name) {
+            document.getElementById('resetId').value = id;
+            document.getElementById('resetName').innerText = name;
+            document.getElementById('resetPasswordModal').style.display = 'block';
+        }
+
+        // Close modal if clicked outside
+        window.onclick = function(event) {
+            var modal = document.getElementById('resetPasswordModal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
     </script>
 </body>
 </html>

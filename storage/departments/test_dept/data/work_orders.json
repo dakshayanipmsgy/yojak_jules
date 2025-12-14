@@ -1,0 +1,16 @@
+{
+    "WO-2025-001": {
+        "id": "WO-2025-001",
+        "work_name": "Road Construction Phase 1",
+        "contractor_id": "CON-2025-0001",
+        "status": "Issued",
+        "agreed_amount": "4800000",
+        "time_allowed": "6 Months",
+        "file_id": "FILE_2025_001",
+        "milestone_status": {
+            "mobilization": "Completed",
+            "foundation": "Pending",
+            "completion": "Pending"
+        }
+    }
+}
