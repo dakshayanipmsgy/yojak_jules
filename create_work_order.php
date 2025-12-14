@@ -19,23 +19,9 @@ $tenderId = $_GET['tender_id'] ?? '';
 $contractorId = $_GET['contractor_id'] ?? '';
 
 $prefillWorkName = '';
-$prefillAmount = '';
 
 if ($tenderId && isset($tenders[$tenderId])) {
     $prefillWorkName = $tenders[$tenderId]['title'];
-    // Try to find the contractor's bid amount if available?
-    // The prompt says "Agreed Amount: (Number - Important: This may differ from Tender Estimate)".
-    // So we might not auto-fill amount, or maybe we leave it blank.
-    // Tenders data usually has participants.
-    if ($contractorId) {
-        foreach ($tenders[$tenderId]['participants'] as $p) {
-            if ($p['contractor_id'] === $contractorId) {
-                // If we had bid amount we could fill it. For now leaving blank or using estimate?
-                // Prompt doesn't say to auto-fill amount from bid, just says "Agreed Amount... may differ".
-                break;
-            }
-        }
-    }
 }
 
 $error = '';
@@ -112,8 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'created_by' => $_SESSION['user_id']
         ];
 
-        // Key by Unique ID or Number? Prompt says "List View: WO Number...".
-        // Using Unique ID as key is safer.
+        // Key by Unique ID
         $workOrders[$wo_unique_id] = $newWO;
 
         // 4. Trigger Automation: Create Case File and Draft Documents
@@ -123,7 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $workOrders[$wo_unique_id]['file_id'] = $fileId;
 
             // Calculate PG Amount (5% of Agreed Amount)
-            $pgAmount = $agreed_amount * 0.05;
+            // Sanitize amount (remove commas if any)
+            $sanitizedAmount = str_replace(',', '', $agreed_amount);
+            $pgAmount = floatval($sanitizedAmount) * 0.05;
 
             // Fetch Department Name
             $deptMeta = getDepartment($deptId);
@@ -142,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 '{{contractor_name}}' => $cName,
                 '{{contractor_address}}' => $cAddress,
                 '{{agreed_amount}}' => $agreed_amount,
-                '{{estimated_cost}}' => $agreed_amount, // Approximation if estimate missing
+                '{{estimated_cost}}' => $agreed_amount, // Approximation
                 '{{time_allowed}}' => $time_completion,
                 '{{date_issue}}' => $date_issue,
                 '{{current_date}}' => date('d-m-Y'),
@@ -153,18 +140,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ];
 
             // Template 1: Draft Agreement (F-2)
-            $tplAgreement = file_get_contents('storage/system/templates/agreement_f2.html');
+            $tplAgreement = @file_get_contents('storage/system/templates/agreement_f2.html');
             if ($tplAgreement) {
-                $content = str_replace(array_keys($commonReplacements), array_values($commonReplacements), $tplAgreement);
+                $contentAgreement = str_replace(array_keys($commonReplacements), array_values($commonReplacements), $tplAgreement);
                 $docId1 = generateDocumentID($deptId);
                 $doc1 = [
                     'id' => $docId1,
-                    'title' => 'Draft Agreement - ' . $work_name,
-                    'content' => $content,
+                    'title' => 'Agreement - ' . $work_name,
+                    'content' => $contentAgreement,
                     'status' => 'draft',
                     'created_by' => $_SESSION['user_id'],
                     'created_at' => date('Y-m-d H:i:s'),
-                    'type' => 'document'
+                    'current_owner' => $_SESSION['user_id'],
+                    'type' => 'document',
+                    'history' => [
+                        [
+                            'action' => 'created',
+                            'user_id' => $_SESSION['user_id'],
+                            'timestamp' => date('Y-m-d H:i:s'),
+                            'details' => 'Auto-generated from Work Order'
+                        ]
+                    ]
                 ];
                 // Save to Case File documents folder
                 $fileDocPath = 'departments/' . $deptId . '/files/' . $fileId . '/documents/' . $docId1 . '.json';
@@ -172,18 +168,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Template 2: Request for PG
-            $tplPG = file_get_contents('storage/system/templates/pg_request.html');
+            $tplPG = @file_get_contents('storage/system/templates/pg_request.html');
             if ($tplPG) {
-                $content = str_replace(array_keys($commonReplacements), array_values($commonReplacements), $tplPG);
+                $contentPG = str_replace(array_keys($commonReplacements), array_values($commonReplacements), $tplPG);
                 $docId2 = generateDocumentID($deptId);
                 $doc2 = [
                     'id' => $docId2,
                     'title' => 'Letter: Request for PG - ' . $work_name,
-                    'content' => $content,
+                    'content' => $contentPG,
                     'status' => 'draft',
                     'created_by' => $_SESSION['user_id'],
                     'created_at' => date('Y-m-d H:i:s'),
-                    'type' => 'document'
+                    'current_owner' => $_SESSION['user_id'],
+                    'type' => 'document',
+                    'history' => [
+                        [
+                            'action' => 'created',
+                            'user_id' => $_SESSION['user_id'],
+                            'timestamp' => date('Y-m-d H:i:s'),
+                            'details' => 'Auto-generated from Work Order'
+                        ]
+                    ]
                 ];
                 $fileDocPath = 'departments/' . $deptId . '/files/' . $fileId . '/documents/' . $docId2 . '.json';
                 writeJSON($fileDocPath, $doc2);

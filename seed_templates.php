@@ -122,10 +122,7 @@ foreach ($templates as $filename => $content) {
     echo "Created template: $filename\n";
 }
 
-// Also update templates.json index if needed?
-// The prompt doesn't explicitly ask for it, but `add_document.php` reads `system/templates/templates.json`.
-// I should update that too so they appear in the list.
-
+// Also update templates.json index if needed
 $indexFile = $templatesDir . 'templates.json';
 $index = [];
 if (file_exists($indexFile)) {
