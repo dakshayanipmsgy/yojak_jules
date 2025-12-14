@@ -115,9 +115,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Key by Unique ID or Number? Prompt says "List View: WO Number...".
         // Using Unique ID as key is safer.
         $workOrders[$wo_unique_id] = $newWO;
+
+        // 4. Trigger Automation: Create Case File and Draft Documents
+        // "Project Kickoff" Automation
+        $fileId = createCaseFile($deptId, "Project: " . $work_name, $_SESSION['user_id']);
+        if ($fileId) {
+            $workOrders[$wo_unique_id]['file_id'] = $fileId;
+
+            // Calculate PG Amount (5% of Agreed Amount)
+            $pgAmount = $agreed_amount * 0.05;
+
+            // Fetch Department Name
+            $deptMeta = getDepartment($deptId);
+            $deptName = $deptMeta['name'] ?? 'Department';
+
+            // Fetch Contractor Details
+            $cName = 'Contractor';
+            $cAddress = '';
+            if (isset($contractors[$contractor_id])) {
+                $cName = $contractors[$contractor_id]['name'];
+                $cAddress = $contractors[$contractor_id]['address'];
+            }
+
+            $commonReplacements = [
+                '{{work_name}}' => $work_name,
+                '{{contractor_name}}' => $cName,
+                '{{contractor_address}}' => $cAddress,
+                '{{agreed_amount}}' => $agreed_amount,
+                '{{estimated_cost}}' => $agreed_amount, // Approximation if estimate missing
+                '{{time_allowed}}' => $time_completion,
+                '{{date_issue}}' => $date_issue,
+                '{{current_date}}' => date('d-m-Y'),
+                '{{current_year}}' => date('Y'),
+                '{{department_name}}' => $deptName,
+                '{{pg_amount}}' => number_format($pgAmount, 2),
+                '{{ref_number}}' => 'DRAFT/' . date('Y') . '/XX'
+            ];
+
+            // Template 1: Draft Agreement (F-2)
+            $tplAgreement = file_get_contents('storage/system/templates/agreement_f2.html');
+            if ($tplAgreement) {
+                $content = str_replace(array_keys($commonReplacements), array_values($commonReplacements), $tplAgreement);
+                $docId1 = generateDocumentID($deptId);
+                $doc1 = [
+                    'id' => $docId1,
+                    'title' => 'Draft Agreement - ' . $work_name,
+                    'content' => $content,
+                    'status' => 'draft',
+                    'created_by' => $_SESSION['user_id'],
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'type' => 'document'
+                ];
+                // Save to Case File documents folder
+                $fileDocPath = 'departments/' . $deptId . '/files/' . $fileId . '/documents/' . $docId1 . '.json';
+                writeJSON($fileDocPath, $doc1);
+            }
+
+            // Template 2: Request for PG
+            $tplPG = file_get_contents('storage/system/templates/pg_request.html');
+            if ($tplPG) {
+                $content = str_replace(array_keys($commonReplacements), array_values($commonReplacements), $tplPG);
+                $docId2 = generateDocumentID($deptId);
+                $doc2 = [
+                    'id' => $docId2,
+                    'title' => 'Letter: Request for PG - ' . $work_name,
+                    'content' => $content,
+                    'status' => 'draft',
+                    'created_by' => $_SESSION['user_id'],
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'type' => 'document'
+                ];
+                $fileDocPath = 'departments/' . $deptId . '/files/' . $fileId . '/documents/' . $docId2 . '.json';
+                writeJSON($fileDocPath, $doc2);
+            }
+        }
+
+        // Save Work Order Again (with file_id)
         writeJSON($woPath, $workOrders);
 
-        // 4. Update Tender if linked
+        // 5. Update Tender if linked
         if ($tender_id_linked && isset($tenders[$tender_id_linked])) {
             $updated = false;
             foreach ($tenders[$tender_id_linked]['participants'] as &$p) {

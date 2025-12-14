@@ -23,5 +23,15 @@
         "id": "noc_certificate",
         "title": "NOC Certificate",
         "filename": "noc_certificate.html"
+    },
+    {
+        "id": "agreement_f2",
+        "title": "Draft Agreement (F-2)",
+        "filename": "agreement_f2.html"
+    },
+    {
+        "id": "pg_request",
+        "title": "Request for Performance Guarantee",
+        "filename": "pg_request.html"
     }
 ]

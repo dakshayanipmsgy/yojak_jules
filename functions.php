@@ -688,4 +688,64 @@ function getOutbox($deptId, $userId) {
     return $outbox;
 }
 
+/**
+ * Creates a new Case File.
+ *
+ * @param string $deptId
+ * @param string $subject
+ * @param string $userId
+ * @return string|false The ID of the created file (e.g. FILE_YYYY_XXX), or false on failure.
+ */
+function createCaseFile($deptId, $subject, $userId) {
+    $filesDir = STORAGE_PATH . "/departments/$deptId/files/";
+    if (!is_dir($filesDir)) {
+        if (!mkdir($filesDir, 0777, true)) return false;
+    }
+
+    $year = date('Y');
+
+    // Scan for existing files to determine next ID
+    $existingFiles = glob($filesDir . 'FILE_' . $year . '_*');
+    $maxNum = 0;
+    if ($existingFiles) {
+        foreach ($existingFiles as $file) {
+            $basename = basename($file); // FILE_2025_001
+            $parts = explode('_', $basename);
+            if (isset($parts[2]) && is_numeric($parts[2])) {
+                $num = intval($parts[2]);
+                if ($num > $maxNum) {
+                    $maxNum = $num;
+                }
+            }
+        }
+    }
+
+    $nextNum = $maxNum + 1;
+    $fileId = 'FILE_' . $year . '_' . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+    $fileNumber = "FILE/$year/" . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+
+    $newFileDir = $filesDir . $fileId . '/';
+
+    if (!mkdir($newFileDir, 0777, true)) return false;
+
+    // Create subdirectories
+    mkdir($newFileDir . 'documents/', 0777, true);
+    mkdir($newFileDir . 'attachments/', 0777, true);
+
+    // Create meta.json
+    $meta = [
+        'file_number' => $fileNumber,
+        'subject' => $subject,
+        'created_by' => $userId,
+        'status' => 'open',
+        'created_at' => date('Y-m-d H:i:s')
+    ];
+    file_put_contents($newFileDir . 'meta.json', json_encode($meta, JSON_PRETTY_PRINT));
+
+    // Create notes.json (Green Sheet)
+    file_put_contents($newFileDir . 'notes.json', json_encode([], JSON_PRETTY_PRINT));
+
+    return $fileId;
+}
+
 ?>
