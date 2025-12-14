@@ -1,1 +1,11 @@
-{"admin.TEST_DEPT": {"name": "Administrator", "status": "active"}}
+{
+    "admin.TEST_DEPT": {
+        "name": "Administrator",
+        "status": "active"
+    },
+    "JE.TEST_DEPT": {
+        "name": "Junior Engineer",
+        "permissions": [],
+        "status": "active"
+    }
+}

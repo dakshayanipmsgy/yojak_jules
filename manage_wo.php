@@ -25,6 +25,25 @@ if (!empty($wo['contractor_id']) && isset($contractors[$wo['contractor_id']])) {
     $contractorName = $contractors[$wo['contractor_id']]['name'];
 }
 
+// Fetch Inspection Officers (JE/AE/Consultant)
+$deptRoles = getRoles($deptId);
+$deptUsers = getUsers($deptId);
+$inspectionOfficers = [];
+foreach ($deptUsers as $uid => $u) {
+    if (isset($u['status']) && $u['status'] !== 'active') continue;
+    $rid = $u['role'] ?? '';
+    if (isset($deptRoles[$rid])) {
+        $rName = $deptRoles[$rid]['name'];
+        if (preg_match('/(Engineer|Junior|Assistant|JE|AE|Consultant)/i', $rName)) {
+            $inspectionOfficers[$uid] = $u['full_name'] . " (" . $rName . ")";
+        }
+    }
+}
+// Add a dummy External Consultant if list is empty for testing or fallback
+if (empty($inspectionOfficers)) {
+    $inspectionOfficers['external'] = "External Consultant";
+}
+
 $message = '';
 $error = '';
 
@@ -481,11 +500,14 @@ if ($agreementDate && $wo['agreement']['status'] === 'Signed') {
                                 </div>
                                 <div>
                                     <?php if ($status === 'Pending'): ?>
-                                        <form method="POST" style="display: inline;">
-                                            <input type="hidden" name="action" value="complete_milestone">
-                                            <input type="hidden" name="stage" value="<?php echo htmlspecialchars($stageName); ?>">
-                                            <button type="submit" class="btn-small btn-secondary">Mark Done</button>
-                                        </form>
+                                        <div style="display:flex; gap:5px;">
+                                            <form method="POST" style="display: inline;">
+                                                <input type="hidden" name="action" value="complete_milestone">
+                                                <input type="hidden" name="stage" value="<?php echo htmlspecialchars($stageName); ?>">
+                                                <button type="submit" class="btn-small btn-secondary" title="Mark as Completed">✓ Done</button>
+                                            </form>
+                                            <button onclick="openInspectionModal('<?php echo htmlspecialchars($stageName); ?>')" class="btn-small" style="background: #8e44ad; color: white;">Req. Insp.</button>
+                                        </div>
                                     <?php else: ?>
                                         <span class="ms-status ms-Completed">✓ Completed</span>
                                     <?php endif; ?>
@@ -495,6 +517,40 @@ if ($agreementDate && $wo['agreement']['status'] === 'Signed') {
                     <?php endif; ?>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Inspection Request Modal -->
+    <div id="inspectionModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeInspectionModal()">&times;</span>
+            <h2>Call for Inspection</h2>
+            <form action="trigger_inspection.php" method="POST">
+                <input type="hidden" name="wo_id" value="<?php echo htmlspecialchars($wo_id); ?>">
+                <input type="hidden" name="stage" id="insp_stage">
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Stage</label>
+                    <input type="text" id="display_stage" readonly style="width: 100%; background: #eee; padding: 8px; border: 1px solid #ddd;">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Select Officer</label>
+                    <select name="officer_id" required style="width: 100%; padding: 8px;">
+                        <option value="">-- Select Officer --</option>
+                        <?php foreach ($inspectionOfficers as $uid => $label): ?>
+                            <option value="<?php echo $uid; ?>"><?php echo htmlspecialchars($label); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Ready for Inspection On</label>
+                    <input type="date" name="inspection_date" required min="<?php echo date('Y-m-d'); ?>" style="width: 100%; padding: 8px;">
+                </div>
+
+                <button type="submit" class="btn-primary" style="width: 100%;">Generate Letter</button>
+            </form>
         </div>
     </div>
 
@@ -544,11 +600,25 @@ if ($agreementDate && $wo['agreement']['status'] === 'Signed') {
             document.getElementById('bgModal').style.display = 'none';
         }
 
+        function openInspectionModal(stage) {
+            document.getElementById('insp_stage').value = stage;
+            document.getElementById('display_stage').value = stage;
+            document.getElementById('inspectionModal').style.display = 'block';
+        }
+
+        function closeInspectionModal() {
+            document.getElementById('inspectionModal').style.display = 'none';
+        }
+
         // Close modal when clicking outside
         window.onclick = function(event) {
             var modal = document.getElementById('bgModal');
+            var inspModal = document.getElementById('inspectionModal');
             if (event.target == modal) {
                 modal.style.display = "none";
+            }
+            if (event.target == inspModal) {
+                inspModal.style.display = "none";
             }
         }
 
