@@ -3,7 +3,7 @@ session_start();
 require_once 'functions.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: index.php');
+    header('Location: dept_login.php');
     exit;
 }
 
@@ -21,7 +21,7 @@ if ($deptId === 'superadmin') {
     $validUser = ($config && isset($config['username']) && $config['username'] === $userIdInput);
 
     if (!$validUser) {
-        header('Location: index.php?error=Invalid+Superadmin+User');
+        header('Location: dept_login.php?error=Invalid+Superadmin+User');
         exit;
     }
 
@@ -33,7 +33,7 @@ if ($deptId === 'superadmin') {
         header('Location: dashboard.php');
         exit;
     } else {
-        header('Location: index.php?error=Incorrect+Password');
+        header('Location: dept_login.php?error=Incorrect+Password');
         exit;
     }
 }
@@ -42,26 +42,26 @@ if ($deptId === 'superadmin') {
 
 // Step A: Check Department
 if (empty($deptId)) {
-    header('Location: index.php?error=Department+ID+is+required');
+    header('Location: dept_login.php?error=Department+ID+is+required');
     exit;
 }
 
 // Sanitize Dept ID
 if (!preg_match('/^[a-zA-Z0-9_]+$/', $deptId)) {
-    header('Location: index.php?error=Invalid+Department+ID+format');
+    header('Location: dept_login.php?error=Invalid+Department+ID+format');
     exit;
 }
 
 $deptPath = STORAGE_PATH . '/departments/' . $deptId;
 if (!is_dir($deptPath)) {
-    header('Location: index.php?error=Department+not+found');
+    header('Location: dept_login.php?error=Department+not+found');
     exit;
 }
 
 // Step B: Load User Data
 $users = getUsers($deptId);
 if (empty($users)) {
-    header('Location: index.php?error=User+database+missing');
+    header('Location: dept_login.php?error=User+database+missing');
     exit;
 }
 
@@ -82,7 +82,7 @@ if (isset($users[$constructedId])) {
     $userData = $users[$userIdInput];
 } else {
     // Neither found
-    header('Location: index.php?error=User+ID+not+found');
+    header('Location: dept_login.php?error=User+ID+not+found');
     exit;
 }
 
@@ -90,14 +90,14 @@ if (isset($users[$constructedId])) {
 // Note: If we found via constructed ID, role match is implicit but good to verify.
 // If found via direct ID, we must check if the user actually holds the selected role.
 if ($userData['role'] !== $roleId) {
-    header('Location: index.php?error=User+exists+but+does+not+hold+the+selected+Role');
+    header('Location: dept_login.php?error=User+exists+but+does+not+hold+the+selected+Role');
     exit;
 }
 
 // Step D: Check Status
 if (isset($userData['status']) && $userData['status'] !== 'active') {
     $status = $userData['status'];
-    header("Location: index.php?error=Account+is+$status");
+    header("Location: dept_login.php?error=Account+is+$status");
     exit;
 }
 
@@ -115,6 +115,6 @@ if (password_verify($password, $userData['password'])) {
     header('Location: dashboard.php');
     exit;
 } else {
-    header('Location: index.php?error=Incorrect+Password');
+    header('Location: dept_login.php?error=Incorrect+Password');
     exit;
 }

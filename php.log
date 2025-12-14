@@ -1,0 +1,19 @@
+[Sun Dec 14 06:08:41 2025] PHP 8.3.6 Development Server (http://0.0.0.0:8000) started
+[Sun Dec 14 06:08:52 2025] 127.0.0.1:37710 Accepted
+[Sun Dec 14 06:08:52 2025] 127.0.0.1:37710 [200]: GET /index.php
+[Sun Dec 14 06:08:52 2025] 127.0.0.1:37710 Closing
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37712 Accepted
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37712 [200]: GET /dept_login.php
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37712 Closing
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37724 Accepted
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37724 [200]: GET /style.css
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37724 Closing
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37738 Accepted
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37738 [200]: GET /index.php
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37738 Closing
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37740 Accepted
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37740 [200]: GET /contractor_login.php
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37740 Closing
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37744 Accepted
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37744 [200]: GET /style.css
+[Sun Dec 14 06:08:54 2025] 127.0.0.1:37744 Closing

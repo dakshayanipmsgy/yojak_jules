@@ -1,17 +1,9 @@
 <?php
 session_start();
-require_once 'functions.php';
-
 // If logged in, redirect to dashboard
 if (isset($_SESSION['user_id'])) {
     header('Location: dashboard.php');
     exit;
-}
-
-$error = $_GET['error'] ?? '';
-$logoutMsg = '';
-if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
-    $logoutMsg = "You have successfully logged out.";
 }
 ?>
 <!DOCTYPE html>
@@ -19,142 +11,396 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'logged_out') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yojak - Login</title>
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>Yojak - Accelerating India's Infrastructure</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        .hidden { display: none; }
-    </style>
-</head>
-<body class="login-page">
+        :root {
+            --navy-deep: #0a192f;
+            --navy-light: #172a45;
+            --gold: #d4af37;
+            --gold-light: #f3e5ab;
+            --white: #ffffff;
+            --text-gray: #8892b0;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
 
-    <div class="login-container">
-        <div class="logo-placeholder">Y</div>
-        <h1>Yojak</h1>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-        <?php if ($logoutMsg): ?>
-            <div class="success-message"><?php echo htmlspecialchars($logoutMsg); ?></div>
-        <?php endif; ?>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--navy-deep);
+            color: var(--white);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
 
-        <?php if ($error): ?>
-            <div class="error-message"><?php echo htmlspecialchars(urldecode($error)); ?></div>
-        <?php endif; ?>
+        a {
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+        }
 
-        <form id="loginForm" method="POST" action="login.php">
-            <!-- Box 1: Department ID -->
-            <div class="form-group">
-                <label for="dept_id_search">Department ID</label>
-                <!-- Anti-Autofill Hack: readonly initially, removed on focus -->
-                <input type="text" id="dept_id_search" name="dept_id"
-                       placeholder="Enter Department ID (e.g. dws)"
-                       required autocomplete="off" readonly onfocus="this.removeAttribute('readonly');">
-            </div>
+        /* Navbar */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 5%;
+            background: rgba(10, 25, 47, 0.95);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid var(--glass-border);
+        }
 
-            <!-- Box 2: Role (Initially Hidden) -->
-            <div class="form-group hidden" id="role_group">
-                <label for="role_id">Role</label>
-                <select id="role_id" name="role_id">
-                    <option value="">Select Role</option>
-                </select>
-            </div>
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--white);
+            letter-spacing: 1px;
+        }
 
-            <!-- Box 3: User ID (Initially Hidden) -->
-            <div class="form-group hidden" id="user_group">
-                <label for="user_id">User ID (Prefix Only)</label>
-                <input type="text" id="user_id" name="user_id" placeholder="e.g., For 'anish.admin.dws', just type 'anish'" required>
-            </div>
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
 
-            <!-- Box 4: Password (Initially Hidden) -->
-            <div class="form-group hidden" id="password_group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" placeholder="Enter Password" required>
-                <button type="submit" style="margin-top: 15px;">Login</button>
-            </div>
+        .nav-link {
+            color: var(--text-gray);
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
 
-            <!-- Superadmin override helper (hidden logic handled by JS/Backend) -->
-            <div id="superadmin_notice" class="hidden" style="margin-top:10px; font-size: 0.9em; color: #666;">
-                Superadmin Login detected.
-            </div>
+        .nav-link:hover {
+            color: var(--gold);
+        }
 
-        </form>
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+        }
 
-        <div class="footer">
-            &copy; <?php echo date('Y'); ?> Government of Yojak
-        </div>
-    </div>
+        .btn {
+            padding: 10px 24px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const deptInput = document.getElementById('dept_id_search');
-            const roleSelect = document.getElementById('role_id');
-            const roleGroup = document.getElementById('role_group');
-            const userGroup = document.getElementById('user_group');
-            const passwordGroup = document.getElementById('password_group');
-            const superadminNotice = document.getElementById('superadmin_notice');
+        .btn-outline {
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            background: transparent;
+        }
 
-            function resetFields() {
-                roleGroup.classList.add('hidden');
-                userGroup.classList.add('hidden');
-                passwordGroup.classList.add('hidden');
-                roleSelect.innerHTML = '<option value="">Select Role</option>';
-                superadminNotice.classList.add('hidden');
+        .btn-outline:hover {
+            background: rgba(212, 175, 55, 0.1);
+        }
+
+        .btn-solid {
+            background: var(--gold);
+            color: var(--navy-deep);
+            border: 1px solid var(--gold);
+        }
+
+        .btn-solid:hover {
+            background: var(--gold-light);
+            border-color: var(--gold-light);
+        }
+
+        /* Hero Section */
+        .hero {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0 20px;
+            background: radial-gradient(circle at 50% 50%, #172a45 0%, #0a192f 100%);
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .hero-content {
+            z-index: 1;
+            max-width: 800px;
+            animation: fadeIn Up 1s ease-out;
+        }
+
+        .hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            color: var(--white);
+            line-height: 1.2;
+        }
+
+        .hero p {
+            color: var(--text-gray);
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .btn-large {
+            padding: 15px 35px;
+            font-size: 1.1rem;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 100px 5%;
+            background-color: var(--navy-deep);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 40px;
+            border-radius: 8px;
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--gold);
+        }
+
+        .feature-title {
+            color: var(--gold);
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+
+        .feature-text {
+            color: var(--text-gray);
+        }
+
+        /* Ecosystem Section */
+        .ecosystem {
+            padding: 100px 5%;
+            background-color: var(--navy-light);
+            text-align: center;
+        }
+
+        .ecosystem-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            margin-bottom: 60px;
+            color: var(--white);
+        }
+
+        .ecosystem-flow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .flow-node {
+            background: var(--glass-bg);
+            border: 1px solid var(--gold);
+            padding: 30px;
+            border-radius: 50%;
+            width: 200px;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .flow-node strong {
+            display: block;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--white);
+        }
+
+        .flow-node span {
+            font-size: 0.9rem;
+            color: var(--text-gray);
+        }
+
+        .flow-arrow {
+            color: var(--gold);
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 40px 5%;
+            background-color: #050d1a;
+            border-top: 1px solid var(--glass-border);
+            text-align: center;
+            color: var(--text-gray);
+        }
+
+        .footer-links {
+            margin-bottom: 20px;
+        }
+
+        .footer-links a {
+            margin: 0 15px;
+            font-size: 0.9rem;
+        }
+
+        .footer-links a:hover {
+            color: var(--gold);
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 20px;
+                padding: 15px;
             }
 
-            deptInput.addEventListener('blur', function() {
-                const deptId = this.value.trim();
+            .nav-links {
+                display: none; /* Hide standard links on mobile for simplicity */
+            }
 
-                // Reset subsequent fields when dept changes
-                resetFields();
+            .hero h1 {
+                font-size: 2.5rem;
+            }
 
-                if (deptId === '') {
-                     // Show User ID and Password for potential Superadmin login
-                     // (Though mostly we expect deptId 'superadmin' which returns a role)
-                     return;
-                }
+            .hero-buttons {
+                flex-direction: column;
+            }
 
-                if (deptId) {
-                    fetch('get_login_roles.php?dept_id=' + encodeURIComponent(deptId))
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.error) {
-                                // If error (e.g. dept not found), show message
-                                alert(data.error);
-                            } else if (data.length > 0) {
-                                roleSelect.innerHTML = '<option value="">Select Role</option>';
-                                data.forEach(role => {
-                                    const option = document.createElement('option');
-                                    option.value = role.id;
-                                    option.textContent = role.name;
-                                    roleSelect.appendChild(option);
-                                });
-                                roleGroup.classList.remove('hidden');
-                            } else {
-                                alert("No roles found for this department.");
-                            }
-                        })
-                        .catch(err => {
-                            console.error('Error fetching roles:', err);
-                        });
-                }
-            });
+            .ecosystem-flow {
+                flex-direction: column;
+            }
 
-            roleSelect.addEventListener('change', function() {
-                if (this.value) {
-                    userGroup.classList.remove('hidden');
-                } else {
-                    userGroup.classList.add('hidden');
-                    passwordGroup.classList.add('hidden');
-                }
-            });
+            .flow-arrow {
+                transform: rotate(90deg);
+            }
+        }
+    </style>
+</head>
+<body>
 
-            const userInput = document.getElementById('user_id');
-            userInput.addEventListener('input', function() {
-                if (this.value.trim() !== '') {
-                    passwordGroup.classList.remove('hidden');
-                }
-            });
-        });
-    </script>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="logo">YOJAK</div>
+        <div class="nav-links">
+            <a href="#features" class="nav-link">Features</a>
+            <a href="#ecosystem" class="nav-link">For Departments</a>
+            <a href="#ecosystem" class="nav-link">For Contractors</a>
+        </div>
+        <div class="nav-buttons">
+            <a href="contractor_login.php" class="btn btn-outline">Contractor Login</a>
+            <a href="dept_login.php" class="btn btn-solid">Department Login</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Accelerating India's Infrastructure.</h1>
+            <p>The intelligent platform that connects Government Divisions with Contractors to automate Tenders, Agreements, and Payments.</p>
+            <div class="hero-buttons">
+                <a href="contractor_login.php" class="btn btn-outline btn-large">I am a Contractor</a>
+                <a href="dept_login.php" class="btn btn-solid btn-large">I am an Official</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-title">AI-Powered Drafting</div>
+                <div class="feature-text">Stop typing. Let Yojak draft Agreements, Show Cause Notices, and Letters in seconds using advanced document intelligence.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-title">Universal Vendor ID</div>
+                <div class="feature-text">One verified profile for all your government tenders. No more repetitive paperwork. Seamlessly link across departments.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-title">The Sealed Room</div>
+                <div class="feature-text">Secure, tamper-proof file movement that mimics the physical green-sheet workflow. Only the owner can view or edit.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Ecosystem Section -->
+    <section id="ecosystem" class="ecosystem">
+        <h2 class="ecosystem-title">The Yojak Ecosystem</h2>
+        <div class="ecosystem-flow">
+            <div class="flow-node">
+                <strong>Department</strong>
+                <span>Issues Work Order</span>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-node" style="border-color: var(--white); background: rgba(255,255,255,0.1);">
+                <strong style="color: var(--gold);">YOJAK</strong>
+                <span>Syncs Agreements<br>Tracks Delays</span>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-node">
+                <strong>Contractor</strong>
+                <span>Uploads Bill</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-links">
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Service</a>
+            <a href="#">Support</a>
+        </div>
+        <p>Made with 🇮🇳 for Nation Building.</p>
+    </footer>
 
 </body>
 </html>
