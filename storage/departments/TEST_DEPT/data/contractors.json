@@ -1,0 +1,11 @@
+{
+    "CON-001": {
+        "id": "CON-001",
+        "name": "Acme Constructions",
+        "email": "contact@acme.com",
+        "mobile": "1234567890",
+        "address": "123 Main St",
+        "pan": "ABCDE1234F",
+        "gst": "22ABCDE1234F1Z5"
+    }
+}
