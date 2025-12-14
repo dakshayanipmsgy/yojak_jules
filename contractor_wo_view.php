@@ -31,6 +31,9 @@ if (($wo['contractor_id'] ?? '') !== $contractorId) {
     die("Access Denied.");
 }
 
+$msg = $_GET['msg'] ?? '';
+$err = $_GET['err'] ?? '';
+
 // Fetch Linked Documents
 $documents = [];
 $fileId = $wo['file_id'] ?? '';
@@ -43,28 +46,13 @@ if ($fileId) {
             $docData = json_decode(file_get_contents($filepath), true);
             if ($docData) {
                 // Filter documents addressed to contractor
-                // Check recipient_name or context
-                // Or maybe check if contractor is mentioned?
-                // The prompt says: "List only the documents addressed to them (e.g., 'Work Order', 'Request for PG')"
-
-                // Let's check variables for recipient_name
-                // Also check template type?
-
-                // Usually documents have 'recipient_name' in variables or meta.
-                // Assuming standard template variables.
-
                 $recipient = $docData['variables']['recipient_name'] ?? '';
                 $isAddressedToContractor = false;
 
-                // Check if recipient name matches contractor name (fuzzy match?) or just include specific types
-                // Better: check if the document is meant for the contractor.
-                // If the contractor's name is in recipient_name
                 if (stripos($recipient, $_SESSION['user_name']) !== false) {
                     $isAddressedToContractor = true;
                 }
 
-                // Also include if it's a "Work Order" or "Request for PG" or "Agreement"
-                // created for this work order.
                 $title = $docData['title'] ?? '';
                 if (stripos($title, 'Work Order') !== false ||
                     stripos($title, 'Performance Guarantee') !== false ||
@@ -80,6 +68,7 @@ if ($fileId) {
     }
 }
 
+$agreementStatus = $wo['agreement']['status'] ?? 'Pending';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -103,11 +92,19 @@ if ($fileId) {
         .milestone { display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 10px 15px; border-radius: 4px; margin-bottom: 8px; border-left: 4px solid #ddd; }
         .milestone.completed { border-left-color: #4caf50; background: #e8f5e9; }
         .milestone.pending { border-left-color: #ff9800; background: #fff3e0; }
+        .milestone.requested { border-left-color: #2196F3; background: #e3f2fd; }
 
         .doc-list { list-style: none; padding: 0; }
         .doc-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
         .doc-item:last-child { border-bottom: none; }
         .doc-icon { margin-right: 10px; color: #666; }
+
+        .upload-section { margin-top: 1rem; background: #f0f4f8; padding: 1rem; border-radius: 6px; }
+        .form-row { display: flex; gap: 1rem; margin-bottom: 10px; flex-wrap: wrap; }
+        .form-col { flex: 1; min-width: 150px; }
+
+        .bg-list { margin-top: 1rem; }
+        .bg-item { background: #fff; padding: 0.8rem; border: 1px solid #eee; margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
@@ -115,7 +112,15 @@ if ($fileId) {
     <div class="container">
         <a href="contractor_dashboard.php" class="back-link">&larr; Back to Dashboard</a>
 
+        <?php if ($msg): ?>
+            <div class="success-message" style="margin-bottom: 1rem;"><?php echo htmlspecialchars($msg); ?></div>
+        <?php endif; ?>
+        <?php if ($err): ?>
+            <div class="error-message" style="margin-bottom: 1rem;"><?php echo htmlspecialchars($err); ?></div>
+        <?php endif; ?>
+
         <div class="detail-card">
+            <!-- Header Info -->
             <div class="detail-section">
                 <h1><?php echo htmlspecialchars($wo['work_name']); ?></h1>
                 <div class="info-grid">
@@ -138,6 +143,120 @@ if ($fileId) {
                 </div>
             </div>
 
+            <!-- Legal Actions Section -->
+            <div class="detail-section">
+                <h3>Legal Actions</h3>
+
+                <!-- 1. Download Drafts -->
+                <h4>1. Project Documents (Drafts)</h4>
+                <?php if (empty($documents)): ?>
+                    <p style="color:#777;">No documents available.</p>
+                <?php else: ?>
+                    <ul class="doc-list">
+                        <?php foreach ($documents as $doc): ?>
+                            <li class="doc-item">
+                                <div>
+                                    <strong><?php echo htmlspecialchars($doc['title'] ?? 'Untitled'); ?></strong>
+                                    <div style="font-size:12px; color:#777;">Ref: <?php echo htmlspecialchars($doc['ref_number'] ?? '-'); ?></div>
+                                </div>
+                                <a href="view_document.php?file_id=<?php echo $fileId; ?>&doc_id=<?php echo $doc['id']; ?>" class="btn-small" target="_blank">View / Download</a>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+
+                <!-- 2. Upload Agreement -->
+                <h4 style="margin-top: 1.5rem;">2. Submit Signed Agreement</h4>
+                <div class="upload-section">
+                    <?php if ($agreementStatus === 'Pending' || $agreementStatus === 'Correction'): ?>
+                        <form action="contractor_action.php" method="POST" enctype="multipart/form-data">
+                            <input type="hidden" name="action" value="upload_agreement">
+                            <input type="hidden" name="wo_id" value="<?php echo htmlspecialchars($woId); ?>">
+                            <div class="form-row">
+                                <div class="form-col">
+                                    <label>Upload Signed Agreement (PDF)</label>
+                                    <input type="file" name="agreement_file" accept=".pdf" required style="width:100%;">
+                                </div>
+                                <div class="form-col" style="display:flex; align-items:flex-end;">
+                                    <button type="submit" class="btn-primary">Submit Signed Agreement</button>
+                                </div>
+                            </div>
+                        </form>
+                    <?php elseif ($agreementStatus === 'Submitted_Pending_Approval'): ?>
+                        <div class="status-badge status-warning" style="display:inline-block; background: #fff3cd; color: #856404; padding: 5px 10px; border-radius: 4px;">
+                            Submitted - Pending Approval
+                        </div>
+                    <?php elseif ($agreementStatus === 'Signed'): ?>
+                         <div class="status-badge status-success" style="display:inline-block; background: #d4edda; color: #155724; padding: 5px 10px; border-radius: 4px;">
+                            Agreement Signed & Active
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Bank Guarantee Wallet -->
+            <div class="detail-section">
+                <h3>Bank Guarantee Wallet</h3>
+
+                <div class="upload-section">
+                    <h4>Add New BG / FDR</h4>
+                    <form action="contractor_action.php" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="add_bg">
+                        <input type="hidden" name="wo_id" value="<?php echo htmlspecialchars($woId); ?>">
+
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label>Ref No</label>
+                                <input type="text" name="bg_ref" required placeholder="BG/FDR Number" style="width:100%; padding: 6px;">
+                            </div>
+                            <div class="form-col">
+                                <label>Bank Name</label>
+                                <input type="text" name="bg_bank" required placeholder="Issuing Bank" style="width:100%; padding: 6px;">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                             <div class="form-col">
+                                <label>Amount (₹)</label>
+                                <input type="number" step="0.01" name="bg_amount" required placeholder="0.00" style="width:100%; padding: 6px;">
+                            </div>
+                            <div class="form-col">
+                                <label>Expiry Date</label>
+                                <input type="date" name="bg_expiry" required style="width:100%; padding: 6px;">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label>Upload Scan (PDF)</label>
+                                <input type="file" name="bg_file" accept=".pdf" required style="width:100%;">
+                            </div>
+                            <div class="form-col" style="display:flex; align-items:flex-end;">
+                                <button type="submit" class="btn-primary">Add to Wallet</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-list">
+                    <?php if (empty($wo['bank_guarantees'])): ?>
+                         <p style="color:#777; font-style: italic;">No Bank Guarantees submitted yet.</p>
+                    <?php else: ?>
+                        <?php foreach ($wo['bank_guarantees'] as $bg): ?>
+                            <div class="bg-item">
+                                <div>
+                                    <strong><?php echo htmlspecialchars($bg['bank_name']); ?></strong> (<?php echo htmlspecialchars($bg['ref_no']); ?>)
+                                    <br>
+                                    <small>Amount: ₹<?php echo htmlspecialchars($bg['amount']); ?> | Expiry: <?php echo htmlspecialchars($bg['expiry_date']); ?></small>
+                                </div>
+                                <div class="status-badge">
+                                    <?php echo htmlspecialchars($bg['status']); ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Milestone Tracker -->
             <div class="detail-section">
                 <h3>Milestone Tracker</h3>
                 <div class="milestone-track">
@@ -148,10 +267,28 @@ if ($fileId) {
                         } else {
                             foreach ($milestones as $name => $status) {
                                 $isCompleted = (strtolower($status) === 'completed');
-                                $class = $isCompleted ? 'completed' : 'pending';
+                                $isRequested = (strtolower($status) === 'inspection_requested');
+                                $class = $isCompleted ? 'completed' : ($isRequested ? 'requested' : 'pending');
+
                                 echo '<div class="milestone ' . $class . '">';
-                                echo '<span>' . htmlspecialchars(ucfirst($name)) . '</span>';
-                                echo '<span class="status-badge">' . htmlspecialchars($status) . '</span>';
+                                echo '<div>';
+                                echo '<strong>' . htmlspecialchars(ucfirst($name)) . '</strong>';
+                                echo '<div style="font-size: 0.8rem; color: #666;">Status: ' . htmlspecialchars($status) . '</div>';
+                                echo '</div>';
+
+                                if ($status === 'Pending') {
+                                    echo '<form action="contractor_action.php" method="POST">';
+                                    echo '<input type="hidden" name="action" value="request_inspection">';
+                                    echo '<input type="hidden" name="wo_id" value="' . htmlspecialchars($woId) . '">';
+                                    echo '<input type="hidden" name="stage" value="' . htmlspecialchars($name) . '">';
+                                    echo '<button type="submit" class="btn-small" style="background:#2196F3; color:white;">Request Inspection</button>';
+                                    echo '</form>';
+                                } elseif ($isRequested) {
+                                     echo '<span class="status-badge" style="background:#e3f2fd; color:#0d47a1;">Requested</span>';
+                                } elseif ($isCompleted) {
+                                    echo '<span class="status-badge" style="background:#e8f5e9; color:#1b5e20;">✓ Done</span>';
+                                }
+
                                 echo '</div>';
                             }
                         }
@@ -159,24 +296,6 @@ if ($fileId) {
                 </div>
             </div>
 
-            <div class="detail-section">
-                <h3>Documents</h3>
-                <?php if (empty($documents)): ?>
-                    <p style="color:#777;">No documents available.</p>
-                <?php else: ?>
-                    <ul class="doc-list">
-                        <?php foreach ($documents as $doc): ?>
-                            <li class="doc-item">
-                                <div>
-                                    <strong><?php echo htmlspecialchars($doc['title'] ?? 'Untitled'); ?></strong>
-                                    <div style="font-size:12px; color:#777;">Ref: <?php echo htmlspecialchars($doc['ref_number'] ?? '-'); ?> | <?php echo htmlspecialchars($doc['creation_date'] ?? ''); ?></div>
-                                </div>
-                                <a href="view_document.php?file_id=<?php echo $fileId; ?>&doc_id=<?php echo $doc['id']; ?>" class="btn-small" target="_blank">View</a>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
-                <?php endif; ?>
-            </div>
         </div>
     </div>
 
