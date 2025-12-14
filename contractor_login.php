@@ -3,49 +3,51 @@ session_start();
 require_once 'functions.php';
 
 $error = '';
+$success = '';
+
+if (isset($_SESSION['register_success'])) {
+    $success = $_SESSION['register_success'];
+    unset($_SESSION['register_success']);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $deptId = trim($_POST['dept_id'] ?? '');
-    $contractorId = trim($_POST['contractor_id'] ?? '');
+    $mobile = trim($_POST['mobile'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if (empty($deptId) || empty($contractorId) || empty($password)) {
+    if (empty($mobile) || empty($password)) {
         $error = "All fields are required.";
     } else {
-        // Path to contractors JSON
-        $contractorsPath = 'departments/' . $deptId . '/data/contractors.json';
-
-        // Check if department exists by trying to read the file
-        // readJSON handles the full path via STORAGE_PATH, so we need to be careful.
-        // functions.php readJSON prepends STORAGE_PATH.
-
-        // First verify department exists loosely
-        if (!is_dir(STORAGE_PATH . "/departments/$deptId")) {
-             $error = "Invalid Department ID.";
+        $contractors = readJSON('global/data/contractors.json');
+        if ($contractors === null) {
+             // If file doesn't exist, nobody registered yet
+             $error = "Invalid Credentials.";
         } else {
-            $contractors = readJSON($contractorsPath);
-            if ($contractors === null) {
-                // If null, it might be that the file doesn't exist or permissions error
-                 $error = "Department data unavailable.";
-            } else {
-                if (isset($contractors[$contractorId])) {
-                    $contractor = $contractors[$contractorId];
-                    // Verify password
-                    if (password_verify($password, $contractor['password'] ?? '')) {
-                        // Success
-                        $_SESSION['role'] = 'contractor';
-                        $_SESSION['user_id'] = $contractorId;
-                        $_SESSION['user_name'] = $contractor['name'];
-                        $_SESSION['dept_id'] = $deptId; // We need this to filter data later
-
-                        header("Location: contractor_dashboard.php");
-                        exit;
-                    } else {
-                        $error = "Invalid Password.";
-                    }
-                } else {
-                    $error = "Contractor ID not found.";
+            $found = null;
+            foreach ($contractors as $id => $c) {
+                if (isset($c['mobile']) && $c['mobile'] === $mobile) {
+                    $found = $c;
+                    break;
                 }
+            }
+
+            if ($found) {
+                if (password_verify($password, $found['password'] ?? '')) {
+                    // Success
+                    $_SESSION['role'] = 'contractor';
+                    $_SESSION['is_contractor'] = true;
+                    $_SESSION['yojak_id'] = $found['yojak_id'];
+                    $_SESSION['contractor_mobile'] = $found['mobile'];
+                    $_SESSION['user_id'] = $found['yojak_id']; // For compatibility
+                    $_SESSION['user_name'] = $found['profile']['company_name'] ?? 'Contractor';
+                    // We don't set dept_id yet as they are global now.
+
+                    header("Location: contractor_dashboard.php");
+                    exit;
+                } else {
+                    $error = "Invalid Password.";
+                }
+            } else {
+                $error = "Mobile number not found.";
             }
         }
     }
@@ -67,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             align-items: center;
             height: 100vh;
             margin: 0;
+            font-family: 'Open Sans', sans-serif;
         }
         .login-card {
             background: white;
@@ -101,13 +104,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 16px;
-            box-sizing: border-box; /* Ensure padding doesn't affect width */
+            box-sizing: border-box;
         }
         .btn-primary {
             width: 100%;
             padding: 12px;
             font-size: 16px;
             margin-top: 1rem;
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background-color: #004494;
         }
         .error-message {
             background-color: #fee;
@@ -117,9 +128,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-bottom: 1rem;
             text-align: left;
         }
-        .back-link {
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+        .register-link {
             display: block;
             margin-top: 1.5rem;
+            color: #666;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .register-link a {
+            color: #0056b3;
+            font-weight: 600;
+        }
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+        .back-link {
+            display: block;
+            margin-top: 1rem;
             color: #666;
             text-decoration: none;
             font-size: 14px;
@@ -132,8 +165,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 
     <div class="login-card">
-        <h1>Contractor Portal</h1>
-        <p>Login to view your Tenders and Work Orders</p>
+        <h1>Universal Login</h1>
+        <p>Access your Contractor Dashboard</p>
+
+        <?php if ($success): ?>
+            <div class="success-message"><?php echo htmlspecialchars($success); ?></div>
+        <?php endif; ?>
 
         <?php if ($error): ?>
             <div class="error-message"><?php echo htmlspecialchars($error); ?></div>
@@ -141,13 +178,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" action="contractor_login.php">
             <div class="form-group">
-                <label for="dept_id">Department ID</label>
-                <input type="text" id="dept_id" name="dept_id" placeholder="e.g. test_dept" required autocomplete="off">
-            </div>
-
-            <div class="form-group">
-                <label for="contractor_id">Contractor ID</label>
-                <input type="text" id="contractor_id" name="contractor_id" placeholder="e.g. CON-2025-0001" required autocomplete="off">
+                <label for="mobile">Mobile Number</label>
+                <input type="tel" id="mobile" name="mobile" placeholder="Your 10-digit Mobile" required autocomplete="off">
             </div>
 
             <div class="form-group">
@@ -157,6 +189,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <button type="submit" class="btn-primary">Login</button>
         </form>
+
+        <div class="register-link">
+            New here? <a href="contractor_register.php">Create an Account</a>
+        </div>
 
         <a href="index.php" class="back-link">Back to Staff Login</a>
     </div>
