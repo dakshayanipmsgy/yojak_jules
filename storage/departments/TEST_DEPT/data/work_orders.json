@@ -1,0 +1,37 @@
+{
+    "WO_TEST_001": {
+        "wo_unique_id": "WO_TEST_001",
+        "tender_id": "TND\/2025\/01",
+        "financial_rules": {
+            "emd_percent": 2,
+            "pg_percent": 5,
+            "sd_deduction_percent": 8,
+            "defect_liability_period": 12
+        },
+        "payment_terms": [
+            {
+                "stage": "Supply",
+                "percent": 60
+            },
+            {
+                "stage": "Installation",
+                "percent": 30
+            },
+            {
+                "stage": "Commissioning",
+                "percent": 10
+            }
+        ],
+        "milestone_status": {
+            "Supply": "Pending",
+            "Installation": "Pending",
+            "Commissioning": "Pending"
+        },
+        "agreement": {
+            "status": "Pending",
+            "signed_date": "",
+            "time_allowed": "6 Months"
+        },
+        "bank_guarantees": []
+    }
+}

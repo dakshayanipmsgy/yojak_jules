@@ -71,6 +71,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $wo_unique_id = 'WO_AUTO_' . strtoupper(bin2hex(random_bytes(3)));
 
+        // Extract Rules from Tender
+        $financial_rules = [];
+        $payment_terms = [];
+        $milestone_status = [];
+
+        if ($tender_id_linked && isset($tenders[$tender_id_linked])) {
+            $linkedTender = $tenders[$tender_id_linked];
+            $financial_rules = $linkedTender['financial_rules'] ?? [];
+            $payment_terms = $linkedTender['payment_terms'] ?? [];
+
+            // Initialize Milestone Status
+            foreach ($payment_terms as $pt) {
+                if (isset($pt['stage'])) {
+                    $milestone_status[$pt['stage']] = 'Pending';
+                }
+            }
+        }
+
         $newWO = [
             'wo_unique_id' => $wo_unique_id,
             'wo_number' => $wo_number,
@@ -81,6 +99,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'time_completion' => $time_completion,
             'date_issue' => $date_issue,
             'status' => 'Issued',
+            'financial_rules' => $financial_rules,
+            'payment_terms' => $payment_terms,
+            'agreement' => [
+                'status' => 'Pending',
+                'signed_date' => '',
+                'time_allowed' => $time_completion
+            ],
+            'bank_guarantees' => [],
+            'milestone_status' => $milestone_status,
             'created_at' => date('Y-m-d H:i:s'),
             'created_by' => $_SESSION['user_id']
         ];
