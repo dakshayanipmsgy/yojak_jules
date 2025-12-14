@@ -1,7 +1,14 @@
 {
     "WO_TEST_001": {
         "wo_unique_id": "WO_TEST_001",
-        "tender_id": "TND\/2025\/01",
+        "wo_number": "WO/001",
+        "tender_id": "TND/2025/01",
+        "contractor_id": "CON-001",
+        "work_name": "Construction of Community Hall",
+        "agreed_amount": 5000000,
+        "time_completion": "6 Months",
+        "date_issue": "2025-01-01",
+        "status": "Issued",
         "financial_rules": {
             "emd_percent": 2,
             "pg_percent": 5,
@@ -32,6 +39,8 @@
             "signed_date": "",
             "time_allowed": "6 Months"
         },
-        "bank_guarantees": []
+        "bank_guarantees": [],
+        "created_at": "2025-01-01 10:00:00",
+        "created_by": "user.admin.TEST_DEPT"
     }
 }

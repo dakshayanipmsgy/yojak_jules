@@ -126,7 +126,7 @@ usort($woList, function($a, $b) {
                     </div>
                     <div class="actions">
                         <a href="print_work_order.php?id=<?php echo htmlspecialchars($wo['wo_unique_id']); ?>" target="_blank" class="btn-secondary">View/Print</a>
-                        <!-- Edit could link to create_work_order.php?id=... if implemented later -->
+                        <a href="manage_wo.php?id=<?php echo htmlspecialchars($wo['wo_unique_id']); ?>" class="btn-primary" style="margin-left: 10px;">Manage (Cockpit)</a>
                     </div>
                 </div>
             <?php endforeach; ?>
